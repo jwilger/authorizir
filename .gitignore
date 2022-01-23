@@ -24,3 +24,6 @@ authorizir-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Local env vars for project
+.envrc
