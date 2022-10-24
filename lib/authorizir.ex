@@ -67,11 +67,11 @@ defmodule Authorizir do
     end
     apply_subject_hierarchy("org_units", id_field: :id)
 
-    create table("org_units") do
+    create table("users") do
       add :name, :string, null: false
       timestamps()
     end
-    apply_subject_hierarchy("org_units", id_field: :id)
+    apply_subject_hierarchy("users", id_field: :id)
   end
   ```
 
@@ -89,7 +89,7 @@ defmodule Authorizir do
     use Ecto.Schema
     use Authorizir.Subject
 
-    schema "org_units" do
+    schema "users" do
       field :name, :string
     end
   end

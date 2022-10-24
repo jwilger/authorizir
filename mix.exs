@@ -4,15 +4,16 @@ defmodule Authorizir.MixProject do
   def project do
     [
       name: "Authorizir",
+      description: "Hierarchical Authorization Library",
       source_url: "https://github.com/jwilger/authorizir",
       homepage_url: "https://github.com/jwilger/authorizir",
       app: :authorizir,
-      version: "0.1.0",
-      project: [
+      version: "1.0.0",
+      package: [
         links: [],
         licenses: ["Apache-2.0"]
       ],
-      elixir: "~> 1.13",
+      elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
