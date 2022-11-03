@@ -8,7 +8,7 @@ defmodule Authorizir.MixProject do
       source_url: "https://github.com/jwilger/authorizir",
       homepage_url: "https://github.com/jwilger/authorizir",
       app: :authorizir,
-      version: "1.0.0",
+      version: "1.0.1",
       package: [
         links: [],
         licenses: ["Apache-2.0"]

@@ -47,8 +47,8 @@ authorization and access control:
 
 **Application**
 : In this document, unless otherwise specified, an Application is any deployed
-  application or service within the Foundry platform that will use the
-  Authorization System to control access to its data and operations.
+  application or service within your platform that will use the Authorization
+  System to control access to its data and operations.
 
 **Authorization Query**
 : A combination of specific Subject, Object, and Privilege identities used as
