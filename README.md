@@ -15,7 +15,7 @@ Authorizir requires the use of [PostgreSQL with the ltree
 extension](https://www.postgresql.org/docs/current/ltree.html). The ltree
 extension is used internally to maintain the directed, acyclic graphs
 representing the Subject, Object, and Privilege hierarchies that are explained
-in the remainder of this document.[^DMPUPL]
+in the remainder of this document.[^1]
 
 ## Definitions ##
 
@@ -65,9 +65,9 @@ authorization and access control:
 
 The Authorization System described in this document is based on the system
 described by Andreas Geyer-Schulz and Anke Thede in *Implementation of
-Hierarchical Authorization for a Web Based Digital Library*[^IHAWBDL] uses three
+Hierarchical Authorization for a Web Based Digital Library*[^2] uses three
 distinct hierarchies to model Access Rules: **Subjects**, **Objects**, and
-**Privileges**. This is similar to the NIST level-2 RBAC model[^NMRBAC] in that
+**Privileges**. This is similar to the NIST level-2 RBAC model[^3] in that
 Privilege assignments can be propagated along a hierarchy of Subjects in a
 manner that is similar to the use of Role hierarchies, however RBAC does not
 inherently address the need for a similar hierarchy in the set of Objects. In
@@ -270,8 +270,8 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/authorizir>.
 
-[^DMPUPL]: Talavera, X. B. (2018, August 27). DAGs with materialized paths using postgres ltree. bustawin. Retrieved January 6, 2022, from https://www.bustawin.com/dags-with-materialized-paths-using-postgres-ltree/
+[^1]: Talavera, X. B. (2018, August 27). DAGs with materialized paths using postgres ltree. bustawin. Retrieved January 6, 2022, from https://www.bustawin.com/dags-with-materialized-paths-using-postgres-ltree/
 
-[^IHAWBDL]: Geyer-Schulz A, Thede A. "Implementation of Hierarchical Authorization For A Web Based Digital Library", **Systemics, Cybernetics and Informatics**, Vol. 5, No. 2, 2007, pp. 51-56
+[^2]: Geyer-Schulz A, Thede A. "Implementation of Hierarchical Authorization For A Web Based Digital Library", **Systemics, Cybernetics and Informatics**, Vol. 5, No. 2, 2007, pp. 51-56
 
-[^NMRBAC]: Sandhu, R. , Ferraiolo, D. and Kuhn, D. (2000), The NIST Model for Role-Based Access Control: Towards a Unified Standard, Proceedings of the Fifth ACM Workshop on Role-Based Access Control (RBAC '00), Berlin, DE, [online], https://doi.org/10.1145/344287.344301, https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=916402 (Accessed January 6, 2022) 
+[^3]: Sandhu, R. , Ferraiolo, D. and Kuhn, D. (2000), The NIST Model for Role-Based Access Control: Towards a Unified Standard, Proceedings of the Fifth ACM Workshop on Role-Based Access Control (RBAC '00), Berlin, DE, [online], https://doi.org/10.1145/344287.344301, https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=916402 (Accessed January 6, 2022) 
