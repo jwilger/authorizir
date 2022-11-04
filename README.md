@@ -209,18 +209,18 @@ su_S(\nu(a_S)) \times su_O(\nu(a_O)) \times su_P(\nu(a_P)) \times + & \iff & a_G
 su_S(\nu(a_S)) \times su_O(\nu(a_O)) \times pr_P(\nu(a_P)) \times - & \iff & a_G = -
 \end{cases}
 $$
-   
+
 Note that there is a difference in the direction of propagation applied to the
 Privilege depending on the value of $a_G$. This is the method by which we ensure
-that the explicit denial of a Privilege will always take precedence, event to
-the point of denying a superior privilege that was explicitly granted. For
-example, let's say that Subject "John" has been granted the "edit" privilege on
-the group of objects, "Blog Posts". The "edit" privilege is an ancestor of the
-"read" privilege (i.e. having "edit" implies also having "read".) Within the
-"Blog Posts" group, there is a sub-group called "Private". There exist an access
-rule that declares a negative grant for "John" on the "Private" group for the
-"read" privilege. Even though the positive grant of the "edit" privilege on
-"Blog Posts" for "John" would normally apply to everything in that object group,
+that the explicit denial of a Privilege will always take precedence, even to the
+point of denying a superior privilege that was explicitly granted. For example,
+let's say that Subject "John" has been granted the "edit" privilege on the group
+of objects, "Blog Posts". The "edit" privilege is an ancestor of the "read"
+privilege (i.e. having "edit" implies also having "read".) Within the "Blog
+Posts" group, there is a sub-group called "Private". There exist an access rule
+that declares a negative grant for "John" on the "Private" group for the "read"
+privilege. Even though the positive grant of the "edit" privilege on "Blog
+Posts" for "John" would normally apply to everything in that object group,
 including the "Private" group, the explicit denial of the "read" privilege on
 the "Private" group also transalates into a denial of the "edit" privilege on
 the "Private" group.
