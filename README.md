@@ -270,8 +270,8 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/authorizir>.
 
-[^1]: Talavera, X. B. (2018, August 27). DAGs with materialized paths using postgres ltree. bustawin. Retrieved January 6, 2022, from https://www.bustawin.com/dags-with-materialized-paths-using-postgres-ltree/
+[^1]: X. B. Talavera, “DAGs with materialized paths using postgres ltree,” bustawin, Aug. 27, 2018. https://www.bustawin.com/dags-with-materialized-paths-using-postgres-ltree/ (accessed Jan. 06, 2022).
 
-[^2]: Geyer-Schulz A, Thede A. "Implementation of Hierarchical Authorization For A Web Based Digital Library", **Systemics, Cybernetics and Informatics**, Vol. 5, No. 2, 2007, pp. 51-56
+[^2]: A. Geyer-Schulz and A. Thede, “Implementation of Hierarchical Authorization For A Web Based Digital Library,” Systemics, Cybertetics and Informatics, 2007, doi: 10.54808/JSCI.
 
-[^3]: Sandhu, R. , Ferraiolo, D. and Kuhn, D. (2000), The NIST Model for Role-Based Access Control: Towards a Unified Standard, Proceedings of the Fifth ACM Workshop on Role-Based Access Control (RBAC '00), Berlin, DE, [online], https://doi.org/10.1145/344287.344301, https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=916402 (Accessed January 6, 2022) 
+[^3]: R. Sandhu, D. Ferraiolo, and R. Kuhn, “The NIST model for role-based access control,” Proceedings of the fifth ACM workshop on Role-based access control  - RBAC ’00, 2000, doi: 10.1145/344287.344301.
