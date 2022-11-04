@@ -253,22 +253,7 @@ all useful configurations of Access Rules for a system can be derived from the
 use of Positive Grants, since the default in the absence of any applicable
 Access Rule is $cA(a)=false$.
 
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `authorizir` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:authorizir, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/authorizir>.
+----
 
 [^1]: X. B. Talavera, “DAGs with materialized paths using postgres ltree,” bustawin, Aug. 27, 2018. https://www.bustawin.com/dags-with-materialized-paths-using-postgres-ltree/ (accessed Jan. 06, 2022).
 
