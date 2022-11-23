@@ -5,7 +5,7 @@ defmodule Authorizir.Migrations.V01 do
   import Dagex.Migrations, only: [setup_node_type: 2]
 
   def up(_opts) do
-    Dagex.Migrations.up()
+    Dagex.Migrations.up(version: 1)
 
     create table("authorizir_subjects") do
       add(:ext_id, :binary, null: false)
@@ -83,6 +83,6 @@ defmodule Authorizir.Migrations.V01 do
     drop(table("authorizir_permissions"))
     drop(table("authorizir_objects"))
     drop(table("authorizir_subjects"))
-    Dagex.Migrations.down()
+    Dagex.Migrations.down(version: 0)
   end
 end

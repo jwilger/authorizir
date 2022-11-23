@@ -2,7 +2,7 @@ defmodule Authorizir.TestRepo.Migrations.AddAuthorizir do
   use Ecto.Migration
 
   def up do
-    Authorizir.Migrations.up(version: 1)
+    Authorizir.Migrations.up(version: 2)
   end
 
   def down do

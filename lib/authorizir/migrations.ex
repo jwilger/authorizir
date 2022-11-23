@@ -56,7 +56,7 @@ defmodule Authorizir.Migrations do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 1
+  @current_version 2
 
   @doc """
   Run the `up` changes for all migrations between the initial version and the current version.
@@ -85,6 +85,7 @@ defmodule Authorizir.Migrations do
       true ->
         :ok
     end
+    flush()
   end
 
   @doc """
@@ -107,6 +108,7 @@ defmodule Authorizir.Migrations do
     if initial >= version do
       change(initial..version, :down)
     end
+    flush()
   end
 
   @doc false
