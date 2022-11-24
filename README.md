@@ -120,15 +120,15 @@ authorization system that is both secure and adaptable to a wide variety of need
     Object $o$, when the Authorization System applies both rules, the resulting
     Authorization must be a Negative Grant.
 
-  * No Subject $s$ shall be capable of creating an Access Rule that will change
-    the resulting Privilege of that same Subject $s$ (i.e. a Subject cannot
-    create a rule that would result in a Positive Grant on an Object for which
-    the Subject does not *already* have a Positive Grant.)
+  * **[TODO][^4]**: No Subject $s$ shall be capable of creating an Access Rule
+    that will change the resulting Privilege of that same Subject $s$ (i.e. a
+    Subject cannot create a rule that would result in a Positive Grant on an
+    Object for which the Subject does not *already* have a Positive Grant.)
 
-  * No Subject $s$ shall be capable of creating an Access Rule affecting a
-    Privilege $p$ on an Object $o$ to another Subject $s'$ where $s$ does not
-    already have a Positive Grant Authorization for $p$ on $o$ (i.e. if you do
-    not have a given privilege, then you also may not grant someone else
+  * **[TODO][^4]**: No Subject $s$ shall be capable of creating an Access Rule
+    affecting a Privilege $p$ on an Object $o$ to another Subject $s'$ where $s$
+    does not already have a Positive Grant Authorization for $p$ on $o$ (i.e. if
+    you do not have a given privilege, then you also may not grant someone else
     that privilege.)
     
 ### Access Rules ###
@@ -260,3 +260,5 @@ Access Rule is $cA(a)=false$.
 [^2]: A. Geyer-Schulz and A. Thede, “Implementation of Hierarchical Authorization For A Web Based Digital Library,” Systemics, Cybertetics and Informatics, 2007, doi: 10.54808/JSCI.
 
 [^3]: R. Sandhu, D. Ferraiolo, and R. Kuhn, “The NIST model for role-based access control,” Proceedings of the fifth ACM workshop on Role-based access control  - RBAC ’00, 2000, doi: 10.1145/344287.344301.
+
+[^4]: Authorizir does not currently enforce *any* authorization rules about changing the authorization rules themselves. I'm considering if and how-best to implement such a feature. For now, though, it is up to each dependant application to create and enforce rules regarding changes to its own authorization rules.
