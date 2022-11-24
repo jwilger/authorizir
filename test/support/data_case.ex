@@ -23,8 +23,7 @@ defmodule AuthorizirTest.DataCase do
       alias AuthorizirTest.Repo
 
       import Ecto
-      import Ecto.Changeset
-      import Ecto.Query
+      import Ecto.{Changeset, Query}
       import AuthorizirTest.DataCase
     end
   end

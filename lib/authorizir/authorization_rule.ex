@@ -3,9 +3,9 @@ defmodule Authorizir.AuthorizationRule do
 
   use TypedEctoSchema
 
-  alias Authorizir.{Object, Permission, Subject}
-
   import Ecto.Changeset
+
+  alias Authorizir.{Object, Permission, Subject}
 
   @primary_key false
   typed_schema "authorizir_rules" do
@@ -16,6 +16,8 @@ defmodule Authorizir.AuthorizationRule do
     timestamps()
   end
 
+  @spec new(non_neg_integer(), non_neg_integer(), non_neg_integer(), :+ | :-) ::
+          Ecto.Changeset.t(t())
   def new(subject_id, object_id, permission_id, rule_type) do
     %__MODULE__{}
     |> cast(

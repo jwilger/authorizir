@@ -7,6 +7,7 @@ defmodule AuthorizirTest do
   alias Ecto.UUID
 
   defmodule Auth do
+    @moduledoc false
     use Authorizir, repo: AuthorizirTest.Repo
   end
 
@@ -28,6 +29,42 @@ defmodule AuthorizirTest do
     test "returns an error if description is nil or blank" do
       for desc <- [nil, "", " "] do
         {:error, :description_is_required} = Auth.register_subject(UUID.generate(), desc)
+      end
+    end
+  end
+
+  describe "register_object/2" do
+    test "returns :ok if object was successfully registered" do
+      :ok = Auth.register_object(UUID.generate(), "some description")
+    end
+
+    test "returns an error if id is nil or blank" do
+      for id <- [nil, "", " "] do
+        {:error, :id_is_required} = Auth.register_object(id, "some description")
+      end
+    end
+
+    test "returns an error if description is nil or blank" do
+      for desc <- [nil, "", " "] do
+        {:error, :description_is_required} = Auth.register_object(UUID.generate(), desc)
+      end
+    end
+  end
+
+  describe "register_permission/2" do
+    test "returns :ok if permission was successfully registered" do
+      :ok = Auth.register_permission(UUID.generate(), "some description")
+    end
+
+    test "returns an error if id is nil or blank" do
+      for id <- [nil, "", " "] do
+        {:error, :id_is_required} = Auth.register_permission(id, "some description")
+      end
+    end
+
+    test "returns an error if description is nil or blank" do
+      for desc <- [nil, "", " "] do
+        {:error, :description_is_required} = Auth.register_permission(UUID.generate(), desc)
       end
     end
   end
@@ -240,7 +277,7 @@ defmodule AuthorizirTest do
     test "returns {:error, :invalid_child} when child id not registered as specified type" do
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
 
-      {:error, :invalid_parent} = Auth.add_child(subject.ext_id, UUID.generate(), Subject)
+      {:error, :invalid_child} = Auth.add_child(subject.ext_id, UUID.generate(), Subject)
     end
 
     test "returns :ok when relationship is created" do
@@ -276,7 +313,7 @@ defmodule AuthorizirTest do
     test "returns {:error, :invalid_child} when child id not registered as specified type" do
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
 
-      {:error, :invalid_parent} = Auth.remove_child(subject.ext_id, UUID.generate(), Subject)
+      {:error, :invalid_child} = Auth.remove_child(subject.ext_id, UUID.generate(), Subject)
     end
 
     test "returns :ok when relationship is removed" do

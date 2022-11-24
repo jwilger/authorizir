@@ -138,14 +138,16 @@ defmodule Authorizir do
 
   """
 
-  alias Authorizir.{AuthorizationRule, Object, Permission, Subject}
-
   import Authorizir.ErrorHelpers, only: [errors_on: 2]
   import Ecto.Query, only: [from: 2]
+
+  alias Authorizir.{AuthorizationRule, Object, Permission, Subject}
 
   @callback register_subject(id :: binary(), description :: String.t()) ::
               :ok | {:error, reason :: atom()}
 
+  @spec register_subject(Ecto.Repo.t(), binary(), String.t()) ::
+          :ok | {:error, :description_is_required | :id_is_required}
   def register_subject(repo, id, description) do
     case Subject.new(id, description) |> repo.insert() do
       {:ok, _subject} ->
@@ -165,12 +167,61 @@ defmodule Authorizir do
     end
   end
 
+  @callback register_object(id :: binary(), description :: String.t()) ::
+              :ok | {:error, reason :: atom()}
+
+  @spec register_object(Ecto.Repo.t(), binary(), String.t()) ::
+          :ok | {:error, :description_is_required | :id_is_required}
+  def register_object(repo, id, description) do
+    case Object.new(id, description) |> repo.insert() do
+      {:ok, _object} ->
+        :ok
+
+      {:error, changeset} ->
+        cond do
+          "can't be blank" in errors_on(changeset, :ext_id) ->
+            {:error, :id_is_required}
+
+          "can't be blank" in errors_on(changeset, :description) ->
+            {:error, :description_is_required}
+
+          true ->
+            raise "Unanticipated error while adding object: #{inspect(changeset)}"
+        end
+    end
+  end
+
+  @callback register_permission(id :: binary(), description :: String.t()) ::
+              :ok | {:error, reason :: atom()}
+
+  @spec register_permission(Ecto.Repo.t(), binary(), String.t()) ::
+          :ok | {:error, :description_is_required | :id_is_required}
+  def register_permission(repo, id, description) do
+    case Permission.new(id, description) |> repo.insert() do
+      {:ok, _permisson} ->
+        :ok
+
+      {:error, changeset} ->
+        cond do
+          "can't be blank" in errors_on(changeset, :ext_id) ->
+            {:error, :id_is_required}
+
+          "can't be blank" in errors_on(changeset, :description) ->
+            {:error, :description_is_required}
+
+          true ->
+            raise "Unanticipated error while adding permisson: #{inspect(changeset)}"
+        end
+    end
+  end
+
   @callback grant_permission(
               subject_id :: binary(),
               object_id :: binary(),
               permission_id :: binary()
             ) :: :ok | {:error, reason :: atom()}
 
+  @spec grant_permission(Ecto.Repo.t(), binary(), binary(), binary()) :: :ok | {:error, atom()}
   def grant_permission(repo, subject_id, object_id, permission_id) do
     create_rule(repo, subject_id, object_id, permission_id, :+)
   end
@@ -181,6 +232,7 @@ defmodule Authorizir do
               permission_id :: binary()
             ) :: :ok | {:error, reason :: atom()}
 
+  @spec revoke_permission(Ecto.Repo.t(), binary(), binary(), binary()) :: :ok | {:error, atom()}
   def revoke_permission(repo, subject_id, object_id, permission_id) do
     delete_rule(repo, subject_id, object_id, permission_id, :+)
   end
@@ -191,6 +243,7 @@ defmodule Authorizir do
               permission_id :: binary()
             ) :: :ok | {:error, reason :: atom()}
 
+  @spec deny_permission(Ecto.Repo.t(), binary(), binary(), binary()) :: :ok | {:error, atom()}
   def deny_permission(repo, subject_id, object_id, permission_id) do
     create_rule(repo, subject_id, object_id, permission_id, :-)
   end
@@ -201,6 +254,7 @@ defmodule Authorizir do
               permission_id :: binary()
             ) :: :ok | {:error, reason :: atom()}
 
+  @spec allow_permission(Ecto.Repo.t(), binary(), binary(), binary()) :: :ok | {:error, atom()}
   def allow_permission(repo, subject_id, object_id, permission_id) do
     delete_rule(repo, subject_id, object_id, permission_id, :-)
   end
@@ -208,32 +262,40 @@ defmodule Authorizir do
   @callback add_child(parent_id :: binary(), child_id :: binary(), type :: module()) ::
               :ok | {:error, reason :: atom()}
 
+  @spec add_child(Ecto.Repo.t(), binary(), binary(), module()) ::
+          :ok | {:error, :invalid_parent | :invalid_child}
   def add_child(repo, parent_id, child_id, type) do
-    with {:parent, parent} when not is_nil(parent) <-
-           {:parent, repo.get_by(type, ext_id: parent_id)},
-         {:child, child} when not is_nil(child) <- {:child, repo.get_by(type, ext_id: child_id)},
+    with {:ok, parent} <- get_parent(repo, type, parent_id),
+         {:ok, child} <- get_child(repo, type, child_id),
          {:edge_created, _edge} <- type.create_edge(parent, child) |> repo.dagex_update() do
       :ok
-    else
-      {:parent, nil} -> {:error, :invalid_parent}
-      {:child, nil} -> {:error, :invalid_parent}
-      {:error, _reason} = error -> error
+    end
+  end
+
+  defp get_parent(repo, type, parent_id) do
+    case repo.get_by(type, ext_id: parent_id) do
+      nil -> {:error, :invalid_parent}
+      parent -> {:ok, parent}
+    end
+  end
+
+  defp get_child(repo, type, child_id) do
+    case repo.get_by(type, ext_id: child_id) do
+      nil -> {:error, :invalid_child}
+      child -> {:ok, child}
     end
   end
 
   @callback remove_child(parent_id :: binary(), child_id :: binary(), type :: module()) ::
               :ok | {:error, reason :: atom()}
 
+  @spec remove_child(Ecto.Repo.t(), binary(), binary(), module()) ::
+          :ok | {:error, :invalid_parent | :invalid_child}
   def remove_child(repo, parent_id, child_id, type) do
-    with {:parent, parent} when not is_nil(parent) <-
-           {:parent, repo.get_by(type, ext_id: parent_id)},
-         {:child, child} when not is_nil(child) <- {:child, repo.get_by(type, ext_id: child_id)},
+    with {:ok, parent} <- get_parent(repo, type, parent_id),
+         {:ok, child} <- get_child(repo, type, child_id),
          {:edge_removed, _edge} <- type.remove_edge(parent, child) |> repo.dagex_update() do
       :ok
-    else
-      {:parent, nil} -> {:error, :invalid_parent}
-      {:child, nil} -> {:error, :invalid_parent}
-      {:error, _reason} = error -> error
     end
   end
 
@@ -243,6 +305,8 @@ defmodule Authorizir do
               permission_id :: binary()
             ) :: :granted | :denied | {:error, reason :: atom()}
 
+  @spec permission_granted?(Ecto.Repo.t(), binary(), binary(), binary()) ::
+          :denied | :granted | {:error, :invalid_subject | :invalid_object | :invalid_permission}
   def permission_granted?(repo, subject_id, object_id, permission_id) do
     case sop_nodes(repo, subject_id, object_id, permission_id) do
       {:ok, subject, object, permission} ->
@@ -313,15 +377,9 @@ defmodule Authorizir do
     do: repo.get_by(Permission, ext_id: ext_id) || {:error, :invalid_permission}
 
   defp create_rule(repo, subject_id, object_id, permission_id, rule_type) do
-    with {:sop, {:ok, subject_id, object_id, permission_id}} <-
-           {:sop, sop_ids(repo, subject_id, object_id, permission_id)},
-         {:existing_rule, nil} <-
-           {:existing_rule,
-            repo.get_by(AuthorizationRule,
-              subject_id: subject_id,
-              object_id: object_id,
-              permission_id: permission_id
-            )} do
+    with {:ok, subject_id, object_id, permission_id} <-
+           sop_ids(repo, subject_id, object_id, permission_id),
+         :ok <- check_existing_rule(repo, subject_id, object_id, permission_id) do
       case AuthorizationRule.new(subject_id, object_id, permission_id, rule_type)
            |> repo.insert() do
         {:ok, _rule} ->
@@ -331,9 +389,20 @@ defmodule Authorizir do
           raise "Unanticipated error occured while creating Authorization Rule. #{inspect(changeset)}"
       end
     else
-      {:sop, error} -> error
       {:existing_rule, %{rule_type: ^rule_type}} -> :ok
       {:existing_rule, _rule} -> {:error, :conflicting_rule_type}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp check_existing_rule(repo, subject_id, object_id, permission_id) do
+    case repo.get_by(AuthorizationRule,
+           subject_id: subject_id,
+           object_id: object_id,
+           permission_id: permission_id
+         ) do
+      nil -> :ok
+      %AuthorizationRule{} = rule -> {:existing_rule, rule}
     end
   end
 
@@ -392,6 +461,14 @@ defmodule Authorizir do
       @impl Authorizir
       def register_subject(id, description),
         do: Authorizir.register_subject(@authorizir_repo, id, description)
+
+      @impl Authorizir
+      def register_object(id, description),
+        do: Authorizir.register_object(@authorizir_repo, id, description)
+
+      @impl Authorizir
+      def register_permission(id, description),
+        do: Authorizir.register_permission(@authorizir_repo, id, description)
     end
   end
 end

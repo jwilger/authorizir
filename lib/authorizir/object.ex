@@ -12,6 +12,7 @@ defmodule Authorizir.Object do
     timestamps()
   end
 
+  @spec new(String.t(), String.t()) :: Ecto.Changeset.t(t())
   def new(ext_id, description) do
     %__MODULE__{}
     |> cast(%{ext_id: ext_id, description: description}, [:ext_id, :description])
@@ -19,5 +20,6 @@ defmodule Authorizir.Object do
     |> unique_constraint(:ext_id)
   end
 
-  def supremum, do: %__MODULE__{id: "*", ext_id: "*", description: "Object Supremum"}
+  @spec supremum :: t()
+  def supremum, do: %__MODULE__{ext_id: "*", description: "Object Supremum"}
 end

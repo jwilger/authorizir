@@ -3,9 +3,12 @@ defmodule Authorizir.Migrations.V01 do
 
   use Ecto.Migration
 
-  require Dagex.Migrations
   import Dagex.Migrations, only: [setup_node_type: 2]
 
+  require Dagex.Migrations
+
+  @spec up(keyword()) :: :ok
+  # credo:disable-for-next-line Credo.Check.Refactor.ABCSize
   def up(_opts) do
     Dagex.Migrations.up()
 
@@ -77,8 +80,10 @@ defmodule Authorizir.Migrations.V01 do
     end
 
     create(index("authorizir_rules", [:subject_id, :object_id, :permission_id, :rule_type]))
+    :ok
   end
 
+  @spec down(keyword()) :: :ok
   def down(_opts) do
     drop(index("authorizir_rules", [:subject_id, :object_id, :permission_id, :rule_type]))
     drop(table("authorizir_rules"))

@@ -58,6 +58,7 @@ defmodule Authorizir.Migrations do
   @initial_version 1
   @current_version 2
 
+  @spec up(keyword()) :: :ok
   @doc """
   Run the `up` changes for all migrations between the initial version and the current version.
 
@@ -87,8 +88,10 @@ defmodule Authorizir.Migrations do
     end
 
     flush()
+    :ok
   end
 
+  @spec down(keyword()) :: :ok
   @doc """
   Run the `down` changes for all migrations between the current version and the initial version.
 
@@ -111,14 +114,18 @@ defmodule Authorizir.Migrations do
     end
 
     flush()
+    :ok
   end
 
+  @spec initial_version :: 1
   @doc false
   def initial_version, do: @initial_version
 
+  @spec current_version :: non_neg_integer()
   @doc false
   def current_version, do: @current_version
 
+  @spec migrated_version(Ecto.Repo.t()) :: integer
   @doc false
   def migrated_version(repo) do
     query = """
@@ -131,7 +138,7 @@ defmodule Authorizir.Migrations do
 
     case repo.query(query) do
       {:ok, %{rows: [[version]]}} when is_binary(version) -> String.to_integer(version)
-      _ -> 0
+      _no_match -> 0
     end
   end
 

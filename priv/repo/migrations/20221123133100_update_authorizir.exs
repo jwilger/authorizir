@@ -1,4 +1,4 @@
-defmodule Authorizir.TestRepo.Migrations.AddAuthorizir do
+defmodule Authorizir.TestRepo.Migrations.UpdateAuthorizir do
   use Ecto.Migration
 
   def up do
