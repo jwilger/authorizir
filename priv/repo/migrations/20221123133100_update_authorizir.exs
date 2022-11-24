@@ -6,6 +6,6 @@ defmodule Authorizir.TestRepo.Migrations.AddAuthorizir do
   end
 
   def down do
-    Authorizir.Migrations.down(version: 0)
+    Authorizir.Migrations.down(version: 2)
   end
 end

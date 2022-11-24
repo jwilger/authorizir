@@ -16,4 +16,6 @@ defmodule Authorizir.Permission do
     |> validate_required([:ext_id, :description])
     |> unique_constraint(:ext_id)
   end
+
+  def supremum, do: %__MODULE__{id: "*", ext_id: "*", description: "Permission Supremum"}
 end

@@ -85,6 +85,7 @@ defmodule Authorizir.Migrations do
       true ->
         :ok
     end
+
     flush()
   end
 
@@ -108,6 +109,7 @@ defmodule Authorizir.Migrations do
     if initial >= version do
       change(initial..version, :down)
     end
+
     flush()
   end
 

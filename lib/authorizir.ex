@@ -291,17 +291,25 @@ defmodule Authorizir do
   end
 
   defp sop_nodes(repo, subject_ext_id, object_ext_id, permission_ext_id) do
-    with {:subject, %{} = subject} <-
-           {:subject, repo.get_by(Subject, ext_id: subject_ext_id)},
-         {:object, %{} = object} <-
-           {:object, repo.get_by(Object, ext_id: object_ext_id)},
-         {:permission, %{} = permission} <-
-           {:permission, repo.get_by(Permission, ext_id: permission_ext_id)} do
+    with %Subject{} = subject <- subject_node(repo, subject_ext_id),
+         %Object{} = object <- object_node(repo, object_ext_id),
+         %Permission{} = permission <- permission_node(repo, permission_ext_id) do
       {:ok, subject, object, permission}
-    else
-      {participant, nil} -> {:error, "invalid_#{participant}" |> String.to_atom()}
     end
   end
+
+  defp subject_node(_repo, "*"), do: Subject.supremum()
+
+  defp subject_node(repo, ext_id),
+    do: repo.get_by(Subject, ext_id: ext_id) || {:error, :invalid_subject}
+
+  defp object_node(_repo, "*"), do: Object.supremum()
+
+  defp object_node(repo, ext_id),
+    do: repo.get_by(Object, ext_id: ext_id) || {:error, :invalid_object}
+
+  defp permission_node(repo, ext_id),
+    do: repo.get_by(Permission, ext_id: ext_id) || {:error, :invalid_permission}
 
   defp create_rule(repo, subject_id, object_id, permission_id, rule_type) do
     with {:sop, {:ok, subject_id, object_id, permission_id}} <-

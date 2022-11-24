@@ -15,6 +15,6 @@ defmodule Authorizir.Migrations.V02 do
     setup_node_type("authorizir_subjects", "1.0.0")
     setup_node_type("authorizir_objects", "1.0.0")
     setup_node_type("authorizir_permissions", "1.0.0")
-    Dagex.Migrations.down(version: 1)
+    Dagex.Migrations.down(version: 2)
   end
 end

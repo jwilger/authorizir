@@ -8,7 +8,7 @@ defmodule Authorizir.MixProject do
       source_url: "https://github.com/jwilger/authorizir",
       homepage_url: "https://github.com/jwilger/authorizir",
       app: :authorizir,
-      version: "1.0.1",
+      version: "2.0.0",
       package: [
         links: [],
         licenses: ["Apache-2.0"]
@@ -27,7 +27,8 @@ defmodule Authorizir.MixProject do
         "ecto.migrate": :test,
         "ecto.migrations": :test,
         "ecto.rollback": :test,
-        "ecto.reset": :test
+        "ecto.reset": :test,
+        quality: :test
       ],
       dialyzer: [
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
@@ -139,7 +140,7 @@ defmodule Authorizir.MixProject do
   defp deps do
     [
       {:credo, "~> 1.1", only: [:dev, :test], runtime: false},
-      {:dagex, path: "../dagex"},
+      {:dagex, "~> 2.0"},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.6"},
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
@@ -153,7 +154,14 @@ defmodule Authorizir.MixProject do
   defp aliases do
     [
       "ecto.reset": ["ecto.drop --quiet", "ecto.create --quiet", "ecto.migrate --quiet"],
-      test: ["ecto.reset", "test"]
+      test: ["ecto.reset", "test"],
+      quality: [
+        "format --check-formatted",
+        "compile --warnings-as-errors",
+        "test --raise --slowest 1 --warnings-as-errors",
+        "credo --strict",
+        "dialyzer"
+      ]
     ]
   end
 end
