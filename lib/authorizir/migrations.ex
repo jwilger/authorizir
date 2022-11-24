@@ -141,6 +141,7 @@ defmodule Authorizir.Migrations do
 
       [__MODULE__, "V#{pad_idx}"]
       |> Module.concat()
+      # credo:disable-for-next-line Credo.Check.Refactor.Apply
       |> apply(direction, [opts])
     end
 

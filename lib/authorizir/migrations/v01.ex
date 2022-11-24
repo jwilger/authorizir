@@ -1,4 +1,6 @@
 defmodule Authorizir.Migrations.V01 do
+  @moduledoc false
+
   use Ecto.Migration
 
   require Dagex.Migrations

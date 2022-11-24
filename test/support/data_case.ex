@@ -16,6 +16,8 @@ defmodule AuthorizirTest.DataCase do
 
   use ExUnit.CaseTemplate
 
+  alias Ecto.Adapters.SQL.Sandbox
+
   using do
     quote do
       alias AuthorizirTest.Repo
@@ -28,10 +30,10 @@ defmodule AuthorizirTest.DataCase do
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(AuthorizirTest.Repo)
+    :ok = Sandbox.checkout(AuthorizirTest.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(AuthorizirTest.Repo, {:shared, self()})
+      Sandbox.mode(AuthorizirTest.Repo, {:shared, self()})
     end
 
     :ok

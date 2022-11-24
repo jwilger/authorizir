@@ -3,6 +3,7 @@ defmodule AuthorizirTest do
 
   alias Authorizir.{Object, Permission, Subject}
   alias AuthorizirTest.Repo
+  alias Ecto.Adapters.SQL.Sandbox
   alias Ecto.UUID
 
   defmodule Auth do
@@ -10,7 +11,7 @@ defmodule AuthorizirTest do
   end
 
   setup do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(AuthorizirTest.Repo)
+    :ok = Sandbox.checkout(AuthorizirTest.Repo)
   end
 
   describe "register_subject/2" do

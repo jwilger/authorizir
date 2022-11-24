@@ -244,15 +244,16 @@ defmodule Authorizir do
             ) :: :granted | :denied | {:error, reason :: atom()}
 
   def permission_granted?(repo, subject_id, object_id, permission_id) do
-    with {:sop, {:ok, subject, object, permission}} <-
-           {:sop, sop_nodes(repo, subject_id, object_id, permission_id)} do
-      cond do
-        authorization_rule_applies?(repo, subject, object, permission, :-) -> :denied
-        authorization_rule_applies?(repo, subject, object, permission, :+) -> :granted
-        true -> :denied
-      end
-    else
-      {:sop, error} -> error
+    case sop_nodes(repo, subject_id, object_id, permission_id) do
+      {:ok, subject, object, permission} ->
+        cond do
+          authorization_rule_applies?(repo, subject, object, permission, :-) -> :denied
+          authorization_rule_applies?(repo, subject, object, permission, :+) -> :granted
+          true -> :denied
+        end
+
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -327,10 +328,7 @@ defmodule Authorizir do
           :ok
 
         {:error, changeset} ->
-          cond do
-            true ->
-              raise "Unanticipated error occured while creating Authorization Rule. #{inspect(changeset)}"
-          end
+          raise "Unanticipated error occured while creating Authorization Rule. #{inspect(changeset)}"
       end
     else
       {:sop, error} -> error
@@ -340,18 +338,19 @@ defmodule Authorizir do
   end
 
   defp delete_rule(repo, subject_id, object_id, permission_id, rule_type) do
-    with {:sop, {:ok, subject_id, object_id, permission_id}} <-
-           {:sop, sop_ids(repo, subject_id, object_id, permission_id)} do
-      from(r in AuthorizationRule,
-        where:
-          r.subject_id == ^subject_id and r.object_id == ^object_id and
-            r.permission_id == ^permission_id and r.rule_type == ^rule_type
-      )
-      |> repo.delete_all()
+    case sop_ids(repo, subject_id, object_id, permission_id) do
+      {:ok, subject_id, object_id, permission_id} ->
+        from(r in AuthorizationRule,
+          where:
+            r.subject_id == ^subject_id and r.object_id == ^object_id and
+              r.permission_id == ^permission_id and r.rule_type == ^rule_type
+        )
+        |> repo.delete_all()
 
-      :ok
-    else
-      {:sop, error} -> error
+        :ok
+
+      {:error, _} = error ->
+        error
     end
   end
 

@@ -1,4 +1,6 @@
 defmodule Authorizir.Permission do
+  @moduledoc false
+
   use Dagex
   use TypedEctoSchema
 

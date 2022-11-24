@@ -1,4 +1,6 @@
 defmodule Authorizir.AuthorizationRule do
+  @moduledoc false
+
   use TypedEctoSchema
 
   alias Authorizir.{Object, Permission, Subject}

@@ -1,4 +1,6 @@
 defmodule Authorizir.ErrorHelpers do
+  @moduledoc false
+
   @doc """
   A helper that transforms changeset errors into a map of messages.
 
