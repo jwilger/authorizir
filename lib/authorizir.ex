@@ -143,7 +143,8 @@ defmodule Authorizir do
 
   alias Authorizir.{AuthorizationRule, Object, Permission, Subject}
 
-  @callback permission_declarations :: list({String.t(), String.t()})
+  @callback permission_declarations :: list({String.t(), String.t(), list(String.t())})
+  @callback role_declarations :: list({String.t(), String.t(), list(String.t())})
 
   @callback init :: :ok
 
@@ -436,15 +437,22 @@ defmodule Authorizir do
 
     quote bind_quoted: [repo: repo, module: module] do
       Module.register_attribute(module, :permissions, accumulate: true)
+      Module.register_attribute(module, :roles, accumulate: true)
 
       @authorizir_repo repo
       @behaviour Authorizir
 
       require Authorizir
-      import Authorizir, only: [permission: 2, permission: 3]
+      import Authorizir, only: [permission: 2, permission: 3, role: 2, role: 3]
 
       @impl Authorizir
       def init do
+        initialize_permissions()
+        initialize_roles()
+        :ok
+      end
+
+      defp initialize_permissions do
         for {ext_id, description, _children} <- permission_declarations() do
           register_permission(ext_id, description)
         end
@@ -452,6 +460,20 @@ defmodule Authorizir do
         for {ext_id, _description, children} <- permission_declarations() do
           for child <- children do
             add_child(ext_id, child, Permission)
+          end
+        end
+      end
+
+      defp initialize_roles do
+        for {ext_id, description, _children} <- role_declarations() do
+          register_subject(ext_id, description)
+          register_object(ext_id, description)
+        end
+
+        for {ext_id, _description, children} <- role_declarations() do
+          for child <- children do
+            add_child(ext_id, child, Subject)
+            add_child(ext_id, child, Object)
           end
         end
       end
@@ -499,7 +521,10 @@ defmodule Authorizir do
       @impl Authorizir
       def permission_declarations, do: @permissions
 
-      defoverridable permission_declarations: 0
+      @impl Authorizir
+      def role_declarations, do: @roles
+
+      defoverridable permission_declarations: 0, role_declarations: 0
     end
   end
 
@@ -525,6 +550,31 @@ defmodule Authorizir do
       def permission_declarations, do: @permissions
 
       defoverridable permission_declarations: 0
+    end
+  end
+
+  defmacro role(ext_id, description, opts \\ []) do
+    ext_id = to_string(ext_id)
+    description = to_string(description)
+
+    children =
+      case Keyword.fetch(opts, :implies) do
+        {:ok, implies} when is_list(implies) ->
+          Enum.map(implies, fn child -> to_string(child) end)
+
+        {:ok, child} ->
+          [to_string(child)]
+
+        :error ->
+          []
+      end
+
+    quote bind_quoted: [ext_id: ext_id, description: description, children: children] do
+      @roles {ext_id, description, children}
+
+      def role_declarations, do: @roles
+
+      defoverridable role_declarations: 0
     end
   end
 end

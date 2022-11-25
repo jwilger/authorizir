@@ -604,8 +604,8 @@ defmodule AuthorizirTest do
     end
   end
 
-  describe "permission/3 macro" do
-    defmodule PermissionMacroTest do
+  describe "macros" do
+    defmodule MacroTest do
       @moduledoc false
       use Authorizir, repo: Repo
 
@@ -614,11 +614,18 @@ defmodule AuthorizirTest do
       permission(:delete, "delete a document", implies: :edit)
       permission(:foo, "Foo")
       permission(:bar, "Bar", implies: [:foo, :delete])
+
+      role(:editor, "Document editors")
+      role(:foo, "Foo")
+      role(:admin, "Admin users", implies: :editor)
+      role(:superadmin, "Bigger, better admin users", implies: [:admin, :foo])
+    end
+
+    setup do
+      MacroTest.init()
     end
 
     test "registers a permission leaf node with the specified description" do
-      PermissionMacroTest.init()
-
       read = Repo.get_by!(Permission, ext_id: "read")
       assert read.description == "view a document"
 
@@ -630,8 +637,6 @@ defmodule AuthorizirTest do
     end
 
     test "makes permission a parent/ancestor of any implied permissions" do
-      PermissionMacroTest.init()
-
       read = Repo.get_by!(Permission, ext_id: "read")
       edit = Repo.get_by!(Permission, ext_id: "edit")
       delete = Repo.get_by!(Permission, ext_id: "delete")
@@ -640,6 +645,54 @@ defmodule AuthorizirTest do
 
       assert Permission.children(bar) |> Repo.all() == [foo, delete]
       assert Permission.descendants(bar) |> Repo.all() == [foo, delete, edit, read]
+    end
+
+    test "registers a role as a subject leaf node with the specified description" do
+      editor = Repo.get_by!(Subject, ext_id: "editor")
+      assert editor.description == "Document editors"
+
+      foo = Repo.get_by!(Subject, ext_id: "foo")
+      assert foo.description == "Foo"
+
+      admin = Repo.get_by!(Subject, ext_id: "admin")
+      assert admin.description == "Admin users"
+
+      superadmin = Repo.get_by!(Subject, ext_id: "superadmin")
+      assert superadmin.description == "Bigger, better admin users"
+    end
+
+    test "makes subject a parent/ancestor of any implied subjects" do
+      editor = Repo.get_by!(Subject, ext_id: "editor")
+      foo = Repo.get_by!(Subject, ext_id: "foo")
+      admin = Repo.get_by!(Subject, ext_id: "admin")
+      superadmin = Repo.get_by!(Subject, ext_id: "superadmin")
+
+      assert Subject.children(superadmin) |> Repo.all() == [admin, foo]
+      assert Subject.descendants(superadmin) |> Repo.all() == [admin, foo, editor]
+    end
+
+    test "registers a role as a object leaf node with the specified description" do
+      editor = Repo.get_by!(Object, ext_id: "editor")
+      assert editor.description == "Document editors"
+
+      foo = Repo.get_by!(Object, ext_id: "foo")
+      assert foo.description == "Foo"
+
+      admin = Repo.get_by!(Object, ext_id: "admin")
+      assert admin.description == "Admin users"
+
+      superadmin = Repo.get_by!(Object, ext_id: "superadmin")
+      assert superadmin.description == "Bigger, better admin users"
+    end
+
+    test "makes object a parent/ancestor of any implied objects" do
+      editor = Repo.get_by!(Object, ext_id: "editor")
+      foo = Repo.get_by!(Object, ext_id: "foo")
+      admin = Repo.get_by!(Object, ext_id: "admin")
+      superadmin = Repo.get_by!(Object, ext_id: "superadmin")
+
+      assert Object.children(superadmin) |> Repo.all() == [admin, foo]
+      assert Object.descendants(superadmin) |> Repo.all() == [admin, foo, editor]
     end
   end
 end
