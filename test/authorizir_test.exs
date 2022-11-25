@@ -31,6 +31,14 @@ defmodule AuthorizirTest do
         {:error, :description_is_required} = Auth.register_subject(UUID.generate(), desc)
       end
     end
+
+    test "updates description if ext_id is the same and description is not" do
+      ext_id = UUID.generate()
+      :ok = Auth.register_subject(ext_id, "some description")
+      :ok = Auth.register_subject(ext_id, "new description")
+      %Subject{description: description} = AuthorizirTest.Repo.get_by!(Subject, ext_id: ext_id)
+      assert description == "new description"
+    end
   end
 
   describe "register_object/2" do
@@ -49,6 +57,14 @@ defmodule AuthorizirTest do
         {:error, :description_is_required} = Auth.register_object(UUID.generate(), desc)
       end
     end
+
+    test "updates description if ext_id is the same and description is not" do
+      ext_id = UUID.generate()
+      :ok = Auth.register_object(ext_id, "some description")
+      :ok = Auth.register_object(ext_id, "new description")
+      %Object{description: description} = AuthorizirTest.Repo.get_by!(Object, ext_id: ext_id)
+      assert description == "new description"
+    end
   end
 
   describe "register_permission/2" do
@@ -66,6 +82,14 @@ defmodule AuthorizirTest do
       for desc <- [nil, "", " "] do
         {:error, :description_is_required} = Auth.register_permission(UUID.generate(), desc)
       end
+    end
+
+    test "updates description if ext_id is the same and description is not" do
+      ext_id = UUID.generate()
+      :ok = Auth.register_permission(ext_id, "some description")
+      :ok = Auth.register_permission(ext_id, "new description")
+      %Permission{description: description} = AuthorizirTest.Repo.get_by!(Permission, ext_id: ext_id)
+      assert description == "new description"
     end
   end
 

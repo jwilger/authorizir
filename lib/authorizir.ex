@@ -149,7 +149,8 @@ defmodule Authorizir do
   @spec register_subject(Ecto.Repo.t(), binary(), String.t()) ::
           :ok | {:error, :description_is_required | :id_is_required}
   def register_subject(repo, id, description) do
-    case Subject.new(id, description) |> repo.insert() do
+    case Subject.new(id, description)
+         |> repo.insert(on_conflict: :replace_all, conflict_target: :ext_id) do
       {:ok, _subject} ->
         :ok
 
@@ -173,7 +174,8 @@ defmodule Authorizir do
   @spec register_object(Ecto.Repo.t(), binary(), String.t()) ::
           :ok | {:error, :description_is_required | :id_is_required}
   def register_object(repo, id, description) do
-    case Object.new(id, description) |> repo.insert() do
+    case Object.new(id, description)
+         |> repo.insert(on_conflict: :replace_all, conflict_target: :ext_id) do
       {:ok, _object} ->
         :ok
 
@@ -197,7 +199,8 @@ defmodule Authorizir do
   @spec register_permission(Ecto.Repo.t(), binary(), String.t()) ::
           :ok | {:error, :description_is_required | :id_is_required}
   def register_permission(repo, id, description) do
-    case Permission.new(id, description) |> repo.insert() do
+    case Permission.new(id, description)
+         |> repo.insert(on_conflict: :replace_all, conflict_target: :ext_id) do
       {:ok, _permisson} ->
         :ok
 
