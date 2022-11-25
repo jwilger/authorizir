@@ -12,7 +12,7 @@ defmodule AuthorizirTest do
   end
 
   setup do
-    :ok = Sandbox.checkout(AuthorizirTest.Repo)
+    :ok = Sandbox.checkout(Repo)
   end
 
   describe "register_subject/2" do
@@ -36,7 +36,7 @@ defmodule AuthorizirTest do
       ext_id = UUID.generate()
       :ok = Auth.register_subject(ext_id, "some description")
       :ok = Auth.register_subject(ext_id, "new description")
-      %Subject{description: description} = AuthorizirTest.Repo.get_by!(Subject, ext_id: ext_id)
+      %Subject{description: description} = Repo.get_by!(Subject, ext_id: ext_id)
       assert description == "new description"
     end
   end
@@ -62,7 +62,7 @@ defmodule AuthorizirTest do
       ext_id = UUID.generate()
       :ok = Auth.register_object(ext_id, "some description")
       :ok = Auth.register_object(ext_id, "new description")
-      %Object{description: description} = AuthorizirTest.Repo.get_by!(Object, ext_id: ext_id)
+      %Object{description: description} = Repo.get_by!(Object, ext_id: ext_id)
       assert description == "new description"
     end
   end
@@ -89,8 +89,7 @@ defmodule AuthorizirTest do
       :ok = Auth.register_permission(ext_id, "some description")
       :ok = Auth.register_permission(ext_id, "new description")
 
-      %Permission{description: description} =
-        AuthorizirTest.Repo.get_by!(Permission, ext_id: ext_id)
+      %Permission{description: description} = Repo.get_by!(Permission, ext_id: ext_id)
 
       assert description == "new description"
     end
@@ -608,17 +607,39 @@ defmodule AuthorizirTest do
   describe "permission/3 macro" do
     defmodule PermissionMacroTest do
       @moduledoc false
-      use Authorizir, repo: AuthorizirTest.Repo
+      use Authorizir, repo: Repo
 
       permission(:read, "view a document")
-      permission(:edit, "edit a document")
+      permission(:edit, "edit a document", implies: :read)
+      permission(:delete, "delete a document", implies: :edit)
+      permission(:foo, "Foo")
+      permission(:bar, "Bar", implies: [:foo, :delete])
     end
 
     test "registers a permission leaf node with the specified description" do
       PermissionMacroTest.init()
 
-      permission = AuthorizirTest.Repo.get_by!(Permission, ext_id: "read")
-      assert permission.description == "view a document"
+      read = Repo.get_by!(Permission, ext_id: "read")
+      assert read.description == "view a document"
+
+      edit = Repo.get_by!(Permission, ext_id: "edit")
+      assert edit.description == "edit a document"
+
+      delete = Repo.get_by!(Permission, ext_id: "delete")
+      assert delete.description == "delete a document"
+    end
+
+    test "makes permission a parent/ancestor of any implied permissions" do
+      PermissionMacroTest.init()
+
+      read = Repo.get_by!(Permission, ext_id: "read")
+      edit = Repo.get_by!(Permission, ext_id: "edit")
+      delete = Repo.get_by!(Permission, ext_id: "delete")
+      foo = Repo.get_by!(Permission, ext_id: "foo")
+      bar = Repo.get_by!(Permission, ext_id: "bar")
+
+      assert Permission.children(bar) |> Repo.all() == [foo, delete]
+      assert Permission.descendants(bar) |> Repo.all() == [foo, delete, edit, read]
     end
   end
 end

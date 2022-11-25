@@ -146,14 +146,6 @@ defmodule Authorizir do
   @callback permission_declarations :: list({String.t(), String.t()})
 
   @callback init :: :ok
-  @spec init(Ecto.Repo.t(), list()) :: :ok
-  def init(repo, permissions) do
-    for {ext_id, description} <- permissions do
-      register_permission(repo, to_string(ext_id), to_string(description))
-    end
-
-    :ok
-  end
 
   @callback register_subject(id :: binary(), description :: String.t()) ::
               :ok | {:error, reason :: atom()}
@@ -449,11 +441,19 @@ defmodule Authorizir do
       @behaviour Authorizir
 
       require Authorizir
-      import Authorizir, only: [permission: 2]
+      import Authorizir, only: [permission: 2, permission: 3]
 
       @impl Authorizir
       def init do
-        Authorizir.init(@authorizir_repo, permission_declarations())
+        for {ext_id, description, _children} <- permission_declarations() do
+          register_permission(ext_id, description)
+        end
+
+        for {ext_id, _description, children} <- permission_declarations() do
+          for child <- children do
+            add_child(ext_id, child, Permission)
+          end
+        end
       end
 
       @impl Authorizir
@@ -503,9 +503,24 @@ defmodule Authorizir do
     end
   end
 
-  defmacro permission(ext_id, description) do
-    quote bind_quoted: [ext_id: ext_id, description: description] do
-      @permissions {ext_id, description}
+  defmacro permission(ext_id, description, opts \\ []) do
+    ext_id = to_string(ext_id)
+    description = to_string(description)
+
+    children =
+      case Keyword.fetch(opts, :implies) do
+        {:ok, implies} when is_list(implies) ->
+          Enum.map(implies, fn child -> to_string(child) end)
+
+        {:ok, child} ->
+          [to_string(child)]
+
+        :error ->
+          []
+      end
+
+    quote bind_quoted: [ext_id: ext_id, description: description, children: children] do
+      @permissions {ext_id, description, children}
 
       def permission_declarations, do: @permissions
 
