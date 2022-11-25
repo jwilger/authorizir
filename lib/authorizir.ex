@@ -143,6 +143,18 @@ defmodule Authorizir do
 
   alias Authorizir.{AuthorizationRule, Object, Permission, Subject}
 
+  @callback permission_declarations :: list({String.t(), String.t()})
+
+  @callback init :: :ok
+  @spec init(Ecto.Repo.t(), list()) :: :ok
+  def init(repo, permissions) do
+    for {ext_id, description} <- permissions do
+      register_permission(repo, to_string(ext_id), to_string(description))
+    end
+
+    :ok
+  end
+
   @callback register_subject(id :: binary(), description :: String.t()) ::
               :ok | {:error, reason :: atom()}
 
@@ -428,10 +440,21 @@ defmodule Authorizir do
 
   defmacro __using__(opts) do
     repo = Keyword.fetch!(opts, :repo)
+    module = __CALLER__.module
 
-    quote bind_quoted: [repo: repo] do
+    quote bind_quoted: [repo: repo, module: module] do
+      Module.register_attribute(module, :permissions, accumulate: true)
+
       @authorizir_repo repo
       @behaviour Authorizir
+
+      require Authorizir
+      import Authorizir, only: [permission: 2]
+
+      @impl Authorizir
+      def init do
+        Authorizir.init(@authorizir_repo, permission_declarations())
+      end
 
       @impl Authorizir
       def grant_permission(subject_id, object_id, permission_id),
@@ -472,6 +495,21 @@ defmodule Authorizir do
       @impl Authorizir
       def register_permission(id, description),
         do: Authorizir.register_permission(@authorizir_repo, id, description)
+
+      @impl Authorizir
+      def permission_declarations, do: @permissions
+
+      defoverridable permission_declarations: 0
+    end
+  end
+
+  defmacro permission(ext_id, description) do
+    quote bind_quoted: [ext_id: ext_id, description: description] do
+      @permissions {ext_id, description}
+
+      def permission_declarations, do: @permissions
+
+      defoverridable permission_declarations: 0
     end
   end
 end

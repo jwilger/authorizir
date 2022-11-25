@@ -88,7 +88,10 @@ defmodule AuthorizirTest do
       ext_id = UUID.generate()
       :ok = Auth.register_permission(ext_id, "some description")
       :ok = Auth.register_permission(ext_id, "new description")
-      %Permission{description: description} = AuthorizirTest.Repo.get_by!(Permission, ext_id: ext_id)
+
+      %Permission{description: description} =
+        AuthorizirTest.Repo.get_by!(Permission, ext_id: ext_id)
+
       assert description == "new description"
     end
   end
@@ -599,6 +602,23 @@ defmodule AuthorizirTest do
       :ok = Auth.grant_permission(subject.ext_id, object.ext_id, permission.ext_id)
 
       :granted = Auth.permission_granted?(subject.ext_id, object.ext_id, permission.ext_id)
+    end
+  end
+
+  describe "permission/3 macro" do
+    defmodule PermissionMacroTest do
+      @moduledoc false
+      use Authorizir, repo: AuthorizirTest.Repo
+
+      permission(:read, "view a document")
+      permission(:edit, "edit a document")
+    end
+
+    test "registers a permission leaf node with the specified description" do
+      PermissionMacroTest.init()
+
+      permission = AuthorizirTest.Repo.get_by!(Permission, ext_id: "read")
+      assert permission.description == "view a document"
     end
   end
 end
