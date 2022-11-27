@@ -148,14 +148,14 @@ defmodule Authorizir do
 
   @callback init :: :ok
 
-  @callback register_subject(id :: binary(), description :: String.t()) ::
+  @callback register_subject(id :: binary(), description :: String.t(), static :: boolean()) ::
               :ok | {:error, reason :: atom()}
 
-  @spec register_subject(Ecto.Repo.t(), binary(), String.t()) ::
+  @spec register_subject(Ecto.Repo.t(), binary(), String.t(), static :: boolean()) ::
           :ok | {:error, :description_is_required | :id_is_required}
-  def register_subject(repo, id, description) do
-    case Subject.new(id, description)
-         |> repo.insert(on_conflict: :replace_all, conflict_target: :ext_id) do
+  def register_subject(repo, id, description, static \\ false) do
+    case Subject.new(id, description, static)
+         |> repo.insert(on_conflict: {:replace, [:description]}, conflict_target: :ext_id) do
       {:ok, _subject} ->
         :ok
 
@@ -173,14 +173,14 @@ defmodule Authorizir do
     end
   end
 
-  @callback register_object(id :: binary(), description :: String.t()) ::
+  @callback register_object(id :: binary(), description :: String.t(), static :: boolean()) ::
               :ok | {:error, reason :: atom()}
 
-  @spec register_object(Ecto.Repo.t(), binary(), String.t()) ::
+  @spec register_object(Ecto.Repo.t(), binary(), String.t(), static :: boolean()) ::
           :ok | {:error, :description_is_required | :id_is_required}
-  def register_object(repo, id, description) do
-    case Object.new(id, description)
-         |> repo.insert(on_conflict: :replace_all, conflict_target: :ext_id) do
+  def register_object(repo, id, description, static \\ false) do
+    case Object.new(id, description, static)
+         |> repo.insert(on_conflict: {:replace, [:description]}, conflict_target: :ext_id) do
       {:ok, _object} ->
         :ok
 
@@ -198,14 +198,14 @@ defmodule Authorizir do
     end
   end
 
-  @callback register_permission(id :: binary(), description :: String.t()) ::
+  @callback register_permission(id :: binary(), description :: String.t(), static :: boolean()) ::
               :ok | {:error, reason :: atom()}
 
-  @spec register_permission(Ecto.Repo.t(), binary(), String.t()) ::
+  @spec register_permission(Ecto.Repo.t(), binary(), String.t(), static :: boolean()) ::
           :ok | {:error, :description_is_required | :id_is_required}
-  def register_permission(repo, id, description) do
-    case Permission.new(id, description)
-         |> repo.insert(on_conflict: :replace_all, conflict_target: :ext_id) do
+  def register_permission(repo, id, description, static \\ false) do
+    case Permission.new(id, description, static)
+         |> repo.insert(on_conflict: {:replace, [:description]}, conflict_target: :ext_id) do
       {:ok, _permisson} ->
         :ok
 
@@ -444,36 +444,51 @@ defmodule Authorizir do
 
       require Authorizir
       import Authorizir, only: [permission: 2, permission: 3, role: 2, role: 3]
+      import Ecto.Query, only: [from: 2, exclude: 2]
 
       @impl Authorizir
       def init do
-        initialize_permissions()
-        initialize_roles()
+        set_up(Permission, &permission_declarations/0, &register_permission/3)
+        set_up(Subject, &role_declarations/0, &register_subject/3)
+        set_up(Object, &role_declarations/0, &register_object/3)
         :ok
       end
 
-      defp initialize_permissions do
-        for {ext_id, description, _children} <- permission_declarations() do
-          register_permission(ext_id, description)
-        end
-
-        for {ext_id, _description, children} <- permission_declarations() do
-          for child <- children do
-            add_child(ext_id, child, Permission)
-          end
-        end
+      defp remove_orphans(type, declarations_fn) do
+        keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> ext_id end)
+        q = from(r in type, where: r.static == true and r.ext_id not in ^keep_ids)
+        @authorizir_repo.delete_all(q)
+        type
       end
 
-      defp initialize_roles do
-        for {ext_id, description, _children} <- role_declarations() do
-          register_subject(ext_id, description)
-          register_object(ext_id, description)
+      defp register_items(type, declarations_fn, register_fn) do
+        for {ext_id, description, _children} <- declarations_fn.() do
+          register_fn.(ext_id, description, true)
         end
 
-        for {ext_id, _description, children} <- role_declarations() do
+        type
+      end
+
+      defp set_up(type, declarations_fn, register_fn) do
+        type
+        |> remove_orphans(declarations_fn)
+        |> register_items(declarations_fn, register_fn)
+        |> build_tree(declarations_fn)
+      end
+
+      defp build_tree(type, declarations_fn) do
+        for {ext_id, _description, children} <- declarations_fn.() do
+          item = @authorizir_repo.get_by(type, ext_id: ext_id)
+
+          from(c in type.children(item), where: c.static == true)
+          |> exclude(:distinct)
+          |> @authorizir_repo.all()
+          |> Enum.each(fn child ->
+            remove_child(ext_id, child.ext_id, type)
+          end)
+
           for child <- children do
-            add_child(ext_id, child, Subject)
-            add_child(ext_id, child, Object)
+            add_child(ext_id, child, type)
           end
         end
       end
@@ -507,16 +522,16 @@ defmodule Authorizir do
         do: Authorizir.remove_child(@authorizir_repo, parent_id, child_id, type)
 
       @impl Authorizir
-      def register_subject(id, description),
-        do: Authorizir.register_subject(@authorizir_repo, id, description)
+      def register_subject(id, description, static \\ false),
+        do: Authorizir.register_subject(@authorizir_repo, id, description, static)
 
       @impl Authorizir
-      def register_object(id, description),
-        do: Authorizir.register_object(@authorizir_repo, id, description)
+      def register_object(id, description, static \\ false),
+        do: Authorizir.register_object(@authorizir_repo, id, description, static)
 
       @impl Authorizir
-      def register_permission(id, description),
-        do: Authorizir.register_permission(@authorizir_repo, id, description)
+      def register_permission(id, description, static \\ false),
+        do: Authorizir.register_permission(@authorizir_repo, id, description, static)
 
       @impl Authorizir
       def permission_declarations, do: @permissions

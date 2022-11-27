@@ -9,13 +9,18 @@ defmodule Authorizir.Object do
   typed_schema "authorizir_objects" do
     field(:ext_id, :binary)
     field(:description, :string)
+    field(:static, :boolean)
     timestamps()
   end
 
-  @spec new(String.t(), String.t()) :: Ecto.Changeset.t(t())
-  def new(ext_id, description) do
+  @spec new(String.t(), String.t(), boolean()) :: Ecto.Changeset.t(t())
+  def new(ext_id, description, static \\ false) do
     %__MODULE__{}
-    |> cast(%{ext_id: ext_id, description: description}, [:ext_id, :description])
+    |> cast(%{ext_id: ext_id, description: description, static: static}, [
+      :ext_id,
+      :description,
+      :static
+    ])
     |> validate_required([:ext_id, :description])
     |> unique_constraint(:ext_id)
   end

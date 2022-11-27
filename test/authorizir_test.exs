@@ -1,6 +1,8 @@
 defmodule AuthorizirTest do
   use ExUnit.Case, async: true
 
+  import Ecto.Query, only: [from: 2]
+
   alias Authorizir.{Object, Permission, Subject}
   alias AuthorizirTest.Repo
   alias Ecto.Adapters.SQL.Sandbox
@@ -693,6 +695,68 @@ defmodule AuthorizirTest do
 
       assert Object.children(superadmin) |> Repo.all() == [admin, foo]
       assert Object.descendants(superadmin) |> Repo.all() == [admin, foo, editor]
+    end
+
+    test "init removes any static permissions, subjects, and objects that are no longer defined" do
+      permission = %Permission{ext_id: "old", description: "Old", static: true} |> Repo.insert!()
+      subject = %Subject{ext_id: "old", description: "Old", static: true} |> Repo.insert!()
+      object = %Object{ext_id: "old", description: "Old", static: true} |> Repo.insert!()
+
+      MacroTest.init()
+
+      assert Repo.get_by(Permission, ext_id: permission.ext_id) == nil
+      assert Repo.get_by(Subject, ext_id: subject.ext_id) == nil
+      assert Repo.get_by(Object, ext_id: object.ext_id) == nil
+    end
+
+    test "init does not remove static permissions, subjects, or objects that are still defined" do
+      all =
+        [Permission, Subject, Object]
+        |> Enum.flat_map(fn type -> Repo.all(from(t in type, order_by: t.id)) end)
+
+      MacroTest.init()
+
+      assert Enum.flat_map([Permission, Subject, Object], fn type ->
+               Repo.all(from(t in type, order_by: t.id))
+             end) == all
+    end
+
+    test "init removes static children that are no longer set as children" do
+      permission_delete = Repo.get_by!(Permission, ext_id: "delete")
+      permission_foo = Repo.get_by!(Permission, ext_id: "foo")
+      sub_editor = Repo.get_by!(Subject, ext_id: "editor")
+      sub_superadmin = Repo.get_by!(Subject, ext_id: "superadmin")
+      obj_editor = Repo.get_by!(Object, ext_id: "editor")
+      obj_superadmin = Repo.get_by!(Object, ext_id: "superadmin")
+      :ok = MacroTest.add_child(permission_foo.ext_id, permission_delete.ext_id, Permission)
+      :ok = MacroTest.add_child(sub_superadmin.ext_id, sub_editor.ext_id, Subject)
+      :ok = MacroTest.add_child(obj_superadmin.ext_id, obj_editor.ext_id, Object)
+      assert permission_delete in (Permission.children(permission_foo) |> Repo.all())
+      assert sub_editor in (Subject.children(sub_superadmin) |> Repo.all())
+      assert obj_editor in (Object.children(obj_superadmin) |> Repo.all())
+      MacroTest.init()
+      refute permission_delete in (Permission.children(permission_foo) |> Repo.all())
+      refute sub_editor in (Subject.children(sub_superadmin) |> Repo.all())
+      refute obj_editor in (Object.children(obj_superadmin) |> Repo.all())
+    end
+
+    test "init does not remove non-static children" do
+      permission_delete = Repo.get_by!(Permission, ext_id: "delete")
+      permission_x = Permission.new("x", "x") |> Repo.insert!()
+      sub_editor = Repo.get_by!(Subject, ext_id: "editor")
+      sub_x = Subject.new("x", "x") |> Repo.insert!()
+      obj_editor = Repo.get_by!(Object, ext_id: "editor")
+      obj_x = Object.new("x", "x") |> Repo.insert!()
+      :ok = MacroTest.add_child(permission_delete.ext_id, permission_x.ext_id, Permission)
+      :ok = MacroTest.add_child(sub_editor.ext_id, sub_x.ext_id, Subject)
+      :ok = MacroTest.add_child(obj_editor.ext_id, obj_x.ext_id, Object)
+      assert permission_x in (Permission.children(permission_delete) |> Repo.all())
+      assert sub_x in (Subject.children(sub_editor) |> Repo.all())
+      assert obj_x in (Object.children(obj_editor) |> Repo.all())
+      MacroTest.init()
+      assert permission_x in (Permission.children(permission_delete) |> Repo.all())
+      assert sub_x in (Subject.children(sub_editor) |> Repo.all())
+      assert obj_x in (Object.children(obj_editor) |> Repo.all())
     end
   end
 end
