@@ -508,7 +508,7 @@ defmodule Authorizir do
         |> build_tree(declarations_fn)
       end
 
-      defp build_tree(type, declarations_fn) do
+      defp build_tree(Permission = type, declarations_fn) do
         for {ext_id, _description, children} <- declarations_fn.() do
           item = @authorizir_repo.get_by(type, ext_id: ext_id)
 
@@ -521,6 +521,23 @@ defmodule Authorizir do
 
           for child <- children do
             add_child(ext_id, child, type)
+          end
+        end
+      end
+
+      defp build_tree(type, declarations_fn) do
+        for {ext_id, _description, parents} <- declarations_fn.() do
+          item = @authorizir_repo.get_by(type, ext_id: ext_id)
+
+          from(c in type.parents(item), where: c.static == true)
+          |> exclude(:distinct)
+          |> @authorizir_repo.all()
+          |> Enum.each(fn parent ->
+            remove_child(parent.ext_id, ext_id, type)
+          end)
+
+          for parent <- parents do
+            add_child(parent, ext_id, type)
           end
         end
       end
@@ -607,7 +624,7 @@ defmodule Authorizir do
     ext_id = to_string(ext_id)
     description = to_string(description)
 
-    children =
+    parents =
       case Keyword.fetch(opts, :implies) do
         {:ok, implies} when is_list(implies) ->
           Enum.map(implies, fn child -> to_string(child) end)
@@ -619,8 +636,8 @@ defmodule Authorizir do
           []
       end
 
-    quote bind_quoted: [ext_id: ext_id, description: description, children: children] do
-      @roles {ext_id, description, children}
+    quote bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
+      @roles {ext_id, description, parents}
 
       def role_declarations, do: @roles
 

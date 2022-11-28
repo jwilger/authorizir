@@ -642,16 +642,22 @@ defmodule AuthorizirTest do
       @moduledoc false
       use Authorizir, repo: Repo
 
-      permission(:read, "view a document")
-      permission(:edit, "edit a document", implies: :read)
-      permission(:delete, "delete a document", implies: :edit)
-      permission(:foo, "Foo")
-      permission(:bar, "Bar", implies: [:foo, :delete])
+      # collection(:documents, "Documents")
+      # collection(:faq, "FAQ", in: :documents)
+      # collection(:articles, "Articles", in: :documents)
+      # collection(:events, "Events")
 
-      role(:editor, "Document editors")
-      role(:foo, "Foo")
-      role(:admin, "Admin users", implies: :editor)
-      role(:superadmin, "Bigger, better admin users", implies: [:admin, :foo])
+      permission(:read, "Read")
+      permission(:edit, "Edit", implies: :read)
+      permission(:create, "Create", implies: :edit)
+      permission(:delete, "Delete", implies: :edit)
+      permission(:manage, "All CRUD permissions", implies: [:create, :delete, :edit, :read])
+
+      role(:users, "Users")
+      role(:editor, "Document editors", implies: :users)
+      role(:support, "Customer Support", implies: :users)
+      role(:scheduler, "Event Scheduler", implies: :users)
+      role(:admin, "Admin users", implies: [:editor, :support, :scheduler])
     end
 
     setup do
@@ -660,72 +666,76 @@ defmodule AuthorizirTest do
 
     test "registers a permission leaf node with the specified description" do
       read = Repo.get_by!(Permission, ext_id: "read")
-      assert read.description == "view a document"
+      assert read.description == "Read"
 
       edit = Repo.get_by!(Permission, ext_id: "edit")
-      assert edit.description == "edit a document"
+      assert edit.description == "Edit"
+
+      create = Repo.get_by!(Permission, ext_id: "create")
+      assert create.description == "Create"
 
       delete = Repo.get_by!(Permission, ext_id: "delete")
-      assert delete.description == "delete a document"
+      assert delete.description == "Delete"
+
+      manage = Repo.get_by!(Permission, ext_id: "manage")
+      assert manage.description == "All CRUD permissions"
     end
 
     test "makes permission a parent/ancestor of any implied permissions" do
       read = Repo.get_by!(Permission, ext_id: "read")
       edit = Repo.get_by!(Permission, ext_id: "edit")
       delete = Repo.get_by!(Permission, ext_id: "delete")
-      foo = Repo.get_by!(Permission, ext_id: "foo")
-      bar = Repo.get_by!(Permission, ext_id: "bar")
 
-      assert Permission.children(bar) |> Repo.all() == [foo, delete]
-      assert Permission.descendants(bar) |> Repo.all() == [foo, delete, edit, read]
+      assert Permission.children(delete) |> Repo.all() == [edit]
+      assert Permission.descendants(delete) |> Repo.all() == [edit, read]
     end
 
     test "registers a role as a subject leaf node with the specified description" do
+      users = Repo.get_by!(Subject, ext_id: "users")
+      assert users.description == "Users"
       editor = Repo.get_by!(Subject, ext_id: "editor")
       assert editor.description == "Document editors"
-
-      foo = Repo.get_by!(Subject, ext_id: "foo")
-      assert foo.description == "Foo"
-
+      support = Repo.get_by!(Subject, ext_id: "support")
+      assert support.description == "Customer Support"
+      scheduler = Repo.get_by!(Subject, ext_id: "scheduler")
+      assert scheduler.description == "Event Scheduler"
       admin = Repo.get_by!(Subject, ext_id: "admin")
       assert admin.description == "Admin users"
-
-      superadmin = Repo.get_by!(Subject, ext_id: "superadmin")
-      assert superadmin.description == "Bigger, better admin users"
     end
 
-    test "makes subject a parent/ancestor of any implied subjects" do
+    test "makes subject a child/descendant of any implied subjects" do
+      users = Repo.get_by!(Subject, ext_id: "users")
       editor = Repo.get_by!(Subject, ext_id: "editor")
-      foo = Repo.get_by!(Subject, ext_id: "foo")
+      support = Repo.get_by!(Subject, ext_id: "support")
+      scheduler = Repo.get_by!(Subject, ext_id: "scheduler")
       admin = Repo.get_by!(Subject, ext_id: "admin")
-      superadmin = Repo.get_by!(Subject, ext_id: "superadmin")
 
-      assert Subject.children(superadmin) |> Repo.all() == [admin, foo]
-      assert Subject.descendants(superadmin) |> Repo.all() == [admin, foo, editor]
+      assert Subject.parents(admin) |> Repo.all() == [scheduler, support, editor]
+      assert Subject.ancestors(admin) |> Repo.all() == [scheduler, support, editor, users]
     end
 
     test "registers a role as a object leaf node with the specified description" do
+      users = Repo.get_by!(Object, ext_id: "users")
+      assert users.description == "Users"
       editor = Repo.get_by!(Object, ext_id: "editor")
       assert editor.description == "Document editors"
-
-      foo = Repo.get_by!(Object, ext_id: "foo")
-      assert foo.description == "Foo"
-
+      support = Repo.get_by!(Object, ext_id: "support")
+      assert support.description == "Customer Support"
+      scheduler = Repo.get_by!(Object, ext_id: "scheduler")
+      assert scheduler.description == "Event Scheduler"
       admin = Repo.get_by!(Object, ext_id: "admin")
       assert admin.description == "Admin users"
-
-      superadmin = Repo.get_by!(Object, ext_id: "superadmin")
-      assert superadmin.description == "Bigger, better admin users"
     end
 
-    test "makes object a parent/ancestor of any implied objects" do
+    test "makes object a child/descendant of any implied objects" do
+      users = Repo.get_by!(Object, ext_id: "users")
       editor = Repo.get_by!(Object, ext_id: "editor")
-      foo = Repo.get_by!(Object, ext_id: "foo")
+      support = Repo.get_by!(Object, ext_id: "support")
+      scheduler = Repo.get_by!(Object, ext_id: "scheduler")
       admin = Repo.get_by!(Object, ext_id: "admin")
-      superadmin = Repo.get_by!(Object, ext_id: "superadmin")
 
-      assert Object.children(superadmin) |> Repo.all() == [admin, foo]
-      assert Object.descendants(superadmin) |> Repo.all() == [admin, foo, editor]
+      assert Object.parents(admin) |> Repo.all() == [scheduler, support, editor]
+      assert Object.ancestors(admin) |> Repo.all() == [scheduler, support, editor, users]
     end
 
     test "init removes any static permissions, subjects, and objects that are no longer defined" do
@@ -754,21 +764,21 @@ defmodule AuthorizirTest do
 
     test "init removes static children that are no longer set as children" do
       permission_delete = Repo.get_by!(Permission, ext_id: "delete")
-      permission_foo = Repo.get_by!(Permission, ext_id: "foo")
+      permission_foo = Permission.new("foo", "foo", true) |> Repo.insert!()
       sub_editor = Repo.get_by!(Subject, ext_id: "editor")
-      sub_superadmin = Repo.get_by!(Subject, ext_id: "superadmin")
+      sub_foo = Subject.new("foo", "foo", true) |> Repo.insert!()
       obj_editor = Repo.get_by!(Object, ext_id: "editor")
-      obj_superadmin = Repo.get_by!(Object, ext_id: "superadmin")
+      obj_foo = Object.new("foo", "foo", true) |> Repo.insert!()
       :ok = MacroTest.add_child(permission_foo.ext_id, permission_delete.ext_id, Permission)
-      :ok = MacroTest.add_child(sub_superadmin.ext_id, sub_editor.ext_id, Subject)
-      :ok = MacroTest.add_child(obj_superadmin.ext_id, obj_editor.ext_id, Object)
+      :ok = MacroTest.add_child(sub_foo.ext_id, sub_editor.ext_id, Subject)
+      :ok = MacroTest.add_child(obj_foo.ext_id, obj_editor.ext_id, Object)
       assert permission_delete in (Permission.children(permission_foo) |> Repo.all())
-      assert sub_editor in (Subject.children(sub_superadmin) |> Repo.all())
-      assert obj_editor in (Object.children(obj_superadmin) |> Repo.all())
+      assert sub_editor in (Subject.children(sub_foo) |> Repo.all())
+      assert obj_editor in (Object.children(obj_foo) |> Repo.all())
       MacroTest.init()
       refute permission_delete in (Permission.children(permission_foo) |> Repo.all())
-      refute sub_editor in (Subject.children(sub_superadmin) |> Repo.all())
-      refute obj_editor in (Object.children(obj_superadmin) |> Repo.all())
+      refute sub_editor in (Subject.children(sub_foo) |> Repo.all())
+      refute obj_editor in (Object.children(obj_foo) |> Repo.all())
     end
 
     test "init does not remove non-static children" do
