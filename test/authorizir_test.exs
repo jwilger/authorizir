@@ -606,6 +606,37 @@ defmodule AuthorizirTest do
     end
   end
 
+  describe "list_rules/3" do
+    test "list rules defined for the given subject/object" do
+      subject_a = Subject.new(UUID.generate(), "Sub A") |> Repo.insert!()
+      subject_b = Subject.new(UUID.generate(), "Sub B") |> Repo.insert!()
+      :ok = Auth.add_child(subject_a.ext_id, subject_b.ext_id, Subject)
+
+      object_a = Object.new(UUID.generate(), "Obj A") |> Repo.insert!()
+      object_b = Object.new(UUID.generate(), "Obj B") |> Repo.insert!()
+      :ok = Auth.add_child(object_a.ext_id, object_b.ext_id, Object)
+
+      permission_a = Permission.new("foo", "Foo") |> Repo.insert!()
+      permission_b = Permission.new("bar", "Bar") |> Repo.insert!()
+      :ok = Auth.add_child(permission_a.ext_id, permission_b.ext_id, Permission)
+
+      :ok = Auth.grant_permission(subject_a.ext_id, object_a.ext_id, "foo")
+      :ok = Auth.grant_permission(subject_b.ext_id, object_b.ext_id, "foo")
+      :ok = Auth.deny_permission(subject_a.ext_id, object_a.ext_id, "bar")
+      :ok = Auth.deny_permission(subject_b.ext_id, object_b.ext_id, "bar")
+
+      assert Auth.list_rules(subject_b.ext_id, Subject) == [
+               {subject_b.ext_id, object_b.ext_id, "bar", :-},
+               {subject_b.ext_id, object_b.ext_id, "foo", :+}
+             ]
+
+      assert Auth.list_rules(object_b.ext_id, Object) == [
+               {subject_b.ext_id, object_b.ext_id, "bar", :-},
+               {subject_b.ext_id, object_b.ext_id, "foo", :+}
+             ]
+    end
+  end
+
   describe "macros" do
     defmodule MacroTest do
       @moduledoc false

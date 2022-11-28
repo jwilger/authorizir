@@ -329,6 +329,38 @@ defmodule Authorizir do
     end
   end
 
+  @callback list_rules(ext_id :: binary(), type :: Subject | Object | Permission) ::
+              list(
+                {subject :: binary(), object :: binary(), permission :: binary(), type :: :+ | :-}
+              )
+  @spec list_rules(Ecto.Repo.t(), binary(), module()) ::
+          list({binary(), binary(), binary(), :+ | :-})
+  def list_rules(repo, ext_id, Subject) do
+    q = from [r, subject: s] in list_rules_query(), where: s.ext_id == ^ext_id
+    repo.all(q)
+  end
+
+  def list_rules(repo, ext_id, Object) do
+    q = from [r, object: o] in list_rules_query(), where: o.ext_id == ^ext_id
+    repo.all(q)
+  end
+
+  defp list_rules_query do
+    from(r in AuthorizationRule,
+      join: s in Subject,
+      as: :subject,
+      on: s.id == r.subject_id,
+      join: o in Object,
+      as: :object,
+      on: o.id == r.object_id,
+      join: p in Permission,
+      as: :permisson,
+      on: p.id == r.permission_id,
+      select: {s.ext_id, o.ext_id, p.ext_id, r.rule_type},
+      order_by: [s.ext_id, o.ext_id, p.ext_id, r.rule_type]
+    )
+  end
+
   defp authorization_rule_applies?(repo, subject, object, permission, :-) do
     from([r, s, o] in authorization_rules_for(subject, object),
       join: p in subquery(Permission.with_descendants(permission)),
@@ -538,6 +570,9 @@ defmodule Authorizir do
 
       @impl Authorizir
       def role_declarations, do: @roles
+
+      @impl Authorizir
+      def list_rules(ext_id, type), do: Authorizir.list_rules(@authorizir_repo, ext_id, type)
 
       defoverridable permission_declarations: 0, role_declarations: 0
     end
