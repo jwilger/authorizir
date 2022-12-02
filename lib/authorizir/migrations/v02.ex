@@ -21,6 +21,10 @@ defmodule Authorizir.Migrations.V02 do
       add(:static, :boolean, default: false)
     end
 
+    alter table("authorizir_rules") do
+      add(:static, :boolean, default: false)
+    end
+
     Dagex.Migrations.up(version: 2)
     setup_node_type("authorizir_subjects", "2.0.0")
     setup_node_type("authorizir_objects", "2.0.0")
@@ -44,6 +48,10 @@ defmodule Authorizir.Migrations.V02 do
     end
 
     alter table("authorizir_permissions") do
+      remove(:static)
+    end
+
+    alter table("authorizir_rules") do
       remove(:static)
     end
 

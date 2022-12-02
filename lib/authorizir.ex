@@ -144,7 +144,9 @@ defmodule Authorizir do
   alias Authorizir.{AuthorizationRule, Object, Permission, Subject}
 
   @callback permission_declarations :: list({String.t(), String.t(), list(String.t())})
-  @callback role_declarations :: list({String.t(), String.t(), list(String.t())})
+  @callback subject_declarations :: list({String.t(), String.t(), list(String.t())})
+  @callback object_declarations :: list({String.t(), String.t(), list(String.t())})
+  @callback rule_declarations :: list({String.t(), String.t(), String.t(), atom()})
 
   @callback init :: :ok
 
@@ -229,9 +231,10 @@ defmodule Authorizir do
               permission_id :: binary()
             ) :: :ok | {:error, reason :: atom()}
 
-  @spec grant_permission(Ecto.Repo.t(), binary(), binary(), binary()) :: :ok | {:error, atom()}
-  def grant_permission(repo, subject_id, object_id, permission_id) do
-    create_rule(repo, subject_id, object_id, permission_id, :+)
+  @spec grant_permission(Ecto.Repo.t(), binary(), binary(), binary(), boolean()) ::
+          :ok | {:error, atom()}
+  def grant_permission(repo, subject_id, object_id, permission_id, static \\ false) do
+    create_rule(repo, subject_id, object_id, permission_id, :+, static)
   end
 
   @callback revoke_permission(
@@ -251,9 +254,10 @@ defmodule Authorizir do
               permission_id :: binary()
             ) :: :ok | {:error, reason :: atom()}
 
-  @spec deny_permission(Ecto.Repo.t(), binary(), binary(), binary()) :: :ok | {:error, atom()}
-  def deny_permission(repo, subject_id, object_id, permission_id) do
-    create_rule(repo, subject_id, object_id, permission_id, :-)
+  @spec deny_permission(Ecto.Repo.t(), binary(), binary(), binary(), boolean()) ::
+          :ok | {:error, atom()}
+  def deny_permission(repo, subject_id, object_id, permission_id, static \\ false) do
+    create_rule(repo, subject_id, object_id, permission_id, :-, static)
   end
 
   @callback allow_permission(
@@ -336,12 +340,12 @@ defmodule Authorizir do
   @spec list_rules(Ecto.Repo.t(), binary(), module()) ::
           list({binary(), binary(), binary(), :+ | :-})
   def list_rules(repo, ext_id, Subject) do
-    q = from [r, subject: s] in list_rules_query(), where: s.ext_id == ^ext_id
+    q = from([r, subject: s] in list_rules_query(), where: s.ext_id == ^ext_id)
     repo.all(q)
   end
 
   def list_rules(repo, ext_id, Object) do
-    q = from [r, object: o] in list_rules_query(), where: o.ext_id == ^ext_id
+    q = from([r, object: o] in list_rules_query(), where: o.ext_id == ^ext_id)
     repo.all(q)
   end
 
@@ -416,11 +420,11 @@ defmodule Authorizir do
   defp permission_node(repo, ext_id),
     do: repo.get_by(Permission, ext_id: ext_id) || {:error, :invalid_permission}
 
-  defp create_rule(repo, subject_id, object_id, permission_id, rule_type) do
+  defp create_rule(repo, subject_id, object_id, permission_id, rule_type, static) do
     with {:ok, subject_id, object_id, permission_id} <-
            sop_ids(repo, subject_id, object_id, permission_id),
          :ok <- check_existing_rule(repo, subject_id, object_id, permission_id) do
-      case AuthorizationRule.new(subject_id, object_id, permission_id, rule_type)
+      case AuthorizationRule.new(subject_id, object_id, permission_id, rule_type, static)
            |> repo.insert() do
         {:ok, _rule} ->
           :ok
@@ -463,83 +467,158 @@ defmodule Authorizir do
     end
   end
 
+  defmodule ImplHelper do
+    @moduledoc false
+
+    import Ecto.Query, only: [from: 2, exclude: 2]
+
+    @spec remove_orphans(m :: module(), Ecto.Repo.t(), fun()) :: m :: module()
+    def remove_orphans(AuthorizationRule, repo, _fn) do
+      q = from(r in AuthorizationRule, where: r.static == true)
+      repo.delete_all(q)
+      AuthorizationRule
+    end
+
+    def remove_orphans(type, repo, declarations_fn) do
+      keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> ext_id end)
+      q = from(r in type, where: r.static == true and r.ext_id not in ^keep_ids)
+      repo.delete_all(q)
+      type
+    end
+
+    @spec register_items(
+            AuthorizationRule,
+            Ecto.Repo.t(),
+            fun(),
+            (Ecto.Repo.t(), String.t(), String.t(), String.t(), :+ | :- -> any())
+          ) :: AuthorizationRule
+    def register_items(AuthorizationRule, repo, declarations_fn, register_fn) do
+      for {subject, object, permission, type} <- declarations_fn.() do
+        register_fn.(repo, subject, object, permission, type)
+      end
+
+      AuthorizationRule
+    end
+
+    @spec register_items(
+            m :: module(),
+            Ecto.Repo.t(),
+            fun(),
+            (String.t(), String.t(), boolean() -> any())
+          ) :: m :: module()
+    def register_items(type, _repo, declarations_fn, register_fn) do
+      for {ext_id, description, _children} <- declarations_fn.() do
+        register_fn.(ext_id, description, true)
+      end
+
+      type
+    end
+
+    @spec set_up(
+            AuthorizationRule,
+            Ecto.Repo.t(),
+            fun(),
+            (Ecto.Repo.t(), String.t(), String.t(), String.t(), :+ | :- -> any())
+          ) :: :ok
+    @spec set_up(module(), Ecto.Repo.t(), fun(), (String.t(), String.t(), boolean() -> any())) ::
+            :ok
+    def set_up(type, repo, declarations_fn, register_fn) do
+      type
+      |> remove_orphans(repo, declarations_fn)
+      |> register_items(repo, declarations_fn, register_fn)
+      |> build_tree(repo, declarations_fn)
+
+      :ok
+    end
+
+    @spec create_rule(Ecto.Repo.t(), String.t(), String.t(), String.t(), :+ | :-) ::
+            :ok | {:error, atom()}
+    def create_rule(repo, subject, object, permission, :+) do
+      Authorizir.grant_permission(repo, subject, object, permission, true)
+    end
+
+    def create_rule(repo, subject, object, permission, :-) do
+      Authorizir.deny_permission(repo, subject, object, permission, true)
+    end
+
+    @spec build_tree(module(), Ecto.Repo.t(), fun()) :: :ok
+    def build_tree(AuthorizationRule, _repo, _fn), do: :ok
+
+    def build_tree(Permission = type, repo, declarations_fn) do
+      for {ext_id, _description, children} <- declarations_fn.() do
+        item = repo.get_by(type, ext_id: ext_id)
+
+        from(c in type.children(item), where: c.static == true)
+        |> exclude(:distinct)
+        |> repo.all()
+        |> Enum.each(fn child ->
+          Authorizir.remove_child(repo, ext_id, child.ext_id, type)
+        end)
+
+        for child <- children do
+          Authorizir.add_child(repo, ext_id, child, type)
+        end
+      end
+
+      :ok
+    end
+
+    def build_tree(type, repo, declarations_fn) do
+      for {ext_id, _description, parents} <- declarations_fn.() do
+        item = repo.get_by(type, ext_id: ext_id)
+
+        from(c in type.parents(item), where: c.static == true)
+        |> exclude(:distinct)
+        |> repo.all()
+        |> Enum.each(fn parent ->
+          Authorizir.remove_child(repo, parent.ext_id, ext_id, type)
+        end)
+
+        for parent <- parents do
+          Authorizir.add_child(repo, parent, ext_id, type)
+        end
+      end
+
+      :ok
+    end
+  end
+
   defmacro __using__(opts) do
     repo = Keyword.fetch!(opts, :repo)
     module = __CALLER__.module
 
     quote bind_quoted: [repo: repo, module: module] do
       Module.register_attribute(module, :permissions, accumulate: true)
-      Module.register_attribute(module, :roles, accumulate: true)
+      Module.register_attribute(module, :subjects, accumulate: true)
+      Module.register_attribute(module, :objects, accumulate: true)
+      Module.register_attribute(module, :rules, accumulate: true)
 
       @authorizir_repo repo
       @behaviour Authorizir
 
       require Authorizir
-      import Authorizir, only: [permission: 2, permission: 3, role: 2, role: 3]
-      import Ecto.Query, only: [from: 2, exclude: 2]
+
+      import Authorizir,
+        only: [
+          permission: 2,
+          permission: 3,
+          role: 2,
+          role: 3,
+          collection: 2,
+          collection: 3,
+          grant: 2,
+          deny: 2
+        ]
+
+      import ImplHelper
 
       @impl Authorizir
       def init do
-        set_up(Permission, &permission_declarations/0, &register_permission/3)
-        set_up(Subject, &role_declarations/0, &register_subject/3)
-        set_up(Object, &role_declarations/0, &register_object/3)
+        set_up(Permission, @authorizir_repo, &permission_declarations/0, &register_permission/3)
+        set_up(Subject, @authorizir_repo, &subject_declarations/0, &register_subject/3)
+        set_up(Object, @authorizir_repo, &object_declarations/0, &register_object/3)
+        set_up(AuthorizationRule, @authorizir_repo, &rule_declarations/0, &create_rule/5)
         :ok
-      end
-
-      defp remove_orphans(type, declarations_fn) do
-        keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> ext_id end)
-        q = from(r in type, where: r.static == true and r.ext_id not in ^keep_ids)
-        @authorizir_repo.delete_all(q)
-        type
-      end
-
-      defp register_items(type, declarations_fn, register_fn) do
-        for {ext_id, description, _children} <- declarations_fn.() do
-          register_fn.(ext_id, description, true)
-        end
-
-        type
-      end
-
-      defp set_up(type, declarations_fn, register_fn) do
-        type
-        |> remove_orphans(declarations_fn)
-        |> register_items(declarations_fn, register_fn)
-        |> build_tree(declarations_fn)
-      end
-
-      defp build_tree(Permission = type, declarations_fn) do
-        for {ext_id, _description, children} <- declarations_fn.() do
-          item = @authorizir_repo.get_by(type, ext_id: ext_id)
-
-          from(c in type.children(item), where: c.static == true)
-          |> exclude(:distinct)
-          |> @authorizir_repo.all()
-          |> Enum.each(fn child ->
-            remove_child(ext_id, child.ext_id, type)
-          end)
-
-          for child <- children do
-            add_child(ext_id, child, type)
-          end
-        end
-      end
-
-      defp build_tree(type, declarations_fn) do
-        for {ext_id, _description, parents} <- declarations_fn.() do
-          item = @authorizir_repo.get_by(type, ext_id: ext_id)
-
-          from(c in type.parents(item), where: c.static == true)
-          |> exclude(:distinct)
-          |> @authorizir_repo.all()
-          |> Enum.each(fn parent ->
-            remove_child(parent.ext_id, ext_id, type)
-          end)
-
-          for parent <- parents do
-            add_child(parent, ext_id, type)
-          end
-        end
       end
 
       @impl Authorizir
@@ -586,12 +665,21 @@ defmodule Authorizir do
       def permission_declarations, do: @permissions
 
       @impl Authorizir
-      def role_declarations, do: @roles
+      def subject_declarations, do: @subjects
+
+      @impl Authorizir
+      def object_declarations, do: @objects
+
+      @impl Authorizir
+      def rule_declarations, do: @rules
 
       @impl Authorizir
       def list_rules(ext_id, type), do: Authorizir.list_rules(@authorizir_repo, ext_id, type)
 
-      defoverridable permission_declarations: 0, role_declarations: 0
+      defoverridable permission_declarations: 0,
+                     subject_declarations: 0,
+                     object_declarations: 0,
+                     rule_declarations: 0
     end
   end
 
@@ -627,21 +715,76 @@ defmodule Authorizir do
     parents =
       case Keyword.fetch(opts, :implies) do
         {:ok, implies} when is_list(implies) ->
-          Enum.map(implies, fn child -> to_string(child) end)
+          Enum.map(implies, fn parent -> to_string(parent) end)
 
-        {:ok, child} ->
-          [to_string(child)]
+        {:ok, parent} ->
+          [to_string(parent)]
 
         :error ->
           []
       end
 
     quote bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
-      @roles {ext_id, description, parents}
+      @subjects {ext_id, description, parents}
+      @objects {ext_id, description, parents}
 
-      def role_declarations, do: @roles
+      def subject_declarations, do: @subjects
+      def object_declarations, do: @objects
 
-      defoverridable role_declarations: 0
+      defoverridable subject_declarations: 0, object_declarations: 0
+    end
+  end
+
+  defmacro collection(ext_id, description, opts \\ []) do
+    ext_id = to_string(ext_id)
+    description = to_string(description)
+
+    parents =
+      case Keyword.fetch(opts, :in) do
+        {:ok, implies} when is_list(implies) ->
+          Enum.map(implies, fn parent -> to_string(parent) end)
+
+        {:ok, parent} ->
+          [to_string(parent)]
+
+        :error ->
+          []
+      end
+
+    quote bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
+      @objects {ext_id, description, parents}
+
+      def object_declarations, do: @objects
+
+      defoverridable object_declarations: 0
+    end
+  end
+
+  defmacro grant(permission, [{:on, object}, {:to, subject}]) do
+    permission = to_string(permission)
+    object = to_string(object)
+    subject = to_string(subject)
+
+    quote bind_quoted: [permission: permission, object: object, subject: subject] do
+      @rules {subject, object, permission, :+}
+
+      def rule_declarations, do: @rules
+
+      defoverridable rule_declarations: 0
+    end
+  end
+
+  defmacro deny(permission, [{:on, object}, {:to, subject}]) do
+    permission = to_string(permission)
+    object = to_string(object)
+    subject = to_string(subject)
+
+    quote bind_quoted: [permission: permission, object: object, subject: subject] do
+      @rules {subject, object, permission, :-}
+
+      def rule_declarations, do: @rules
+
+      defoverridable rule_declarations: 0
     end
   end
 end

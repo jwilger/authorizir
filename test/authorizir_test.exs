@@ -642,10 +642,10 @@ defmodule AuthorizirTest do
       @moduledoc false
       use Authorizir, repo: Repo
 
-      # collection(:documents, "Documents")
-      # collection(:faq, "FAQ", in: :documents)
-      # collection(:articles, "Articles", in: :documents)
-      # collection(:events, "Events")
+      collection(:documents, "Documents")
+      collection(:articles, "Articles", in: :documents)
+      collection(:faq, "FAQ", in: :articles)
+      collection(:events, "Events")
 
       permission(:read, "Read")
       permission(:edit, "Edit", implies: :read)
@@ -658,10 +658,33 @@ defmodule AuthorizirTest do
       role(:support, "Customer Support", implies: :users)
       role(:scheduler, "Event Scheduler", implies: :users)
       role(:admin, "Admin users", implies: [:editor, :support, :scheduler])
+
+      grant(:read, on: :documents, to: :users)
+      deny(:read, on: :articles, to: :scheduler)
     end
 
     setup do
       MacroTest.init()
+    end
+
+    test "registers a collection leaf node with the specified description" do
+      documents = Repo.get_by!(Object, ext_id: "documents")
+      assert documents.description == "Documents"
+      faq = Repo.get_by!(Object, ext_id: "faq")
+      assert faq.description == "FAQ"
+      articles = Repo.get_by!(Object, ext_id: "articles")
+      assert articles.description == "Articles"
+      events = Repo.get_by!(Object, ext_id: "events")
+      assert events.description == "Events"
+    end
+
+    test "makes collection object a child/descendant of any implied objects" do
+      documents = Repo.get_by!(Object, ext_id: "documents")
+      faq = Repo.get_by!(Object, ext_id: "faq")
+      articles = Repo.get_by!(Object, ext_id: "articles")
+
+      assert Object.parents(faq) |> Repo.all() == [articles]
+      assert Object.ancestors(faq) |> Repo.all() == [articles, documents]
     end
 
     test "registers a permission leaf node with the specified description" do
@@ -703,7 +726,7 @@ defmodule AuthorizirTest do
       assert admin.description == "Admin users"
     end
 
-    test "makes subject a child/descendant of any implied subjects" do
+    test "makes role subject a child/descendant of any implied subjects" do
       users = Repo.get_by!(Subject, ext_id: "users")
       editor = Repo.get_by!(Subject, ext_id: "editor")
       support = Repo.get_by!(Subject, ext_id: "support")
@@ -727,7 +750,7 @@ defmodule AuthorizirTest do
       assert admin.description == "Admin users"
     end
 
-    test "makes object a child/descendant of any implied objects" do
+    test "makes role object a child/descendant of any implied objects" do
       users = Repo.get_by!(Object, ext_id: "users")
       editor = Repo.get_by!(Object, ext_id: "editor")
       support = Repo.get_by!(Object, ext_id: "support")
@@ -736,6 +759,34 @@ defmodule AuthorizirTest do
 
       assert Object.parents(admin) |> Repo.all() == [scheduler, support, editor]
       assert Object.ancestors(admin) |> Repo.all() == [scheduler, support, editor, users]
+    end
+
+    test "creates positive grant authorization rules" do
+      assert {"users", "documents", "read", :+} in Auth.list_rules("users", Subject)
+    end
+
+    test "creates negative grant authorization rules" do
+      assert {"scheduler", "articles", "read", :-} in Auth.list_rules("scheduler", Subject)
+    end
+
+    test "removes static authorization rules that are no longer defined" do
+      Authorizir.grant_permission(AuthorizirTest.Repo, "users", "articles", "edit", true)
+      Authorizir.deny_permission(AuthorizirTest.Repo, "scheduler", "articles", "edit", true)
+      assert {"users", "articles", "edit", :+} in Auth.list_rules("users", Subject)
+      assert {"scheduler", "articles", "edit", :-} in Auth.list_rules("scheduler", Subject)
+      MacroTest.init()
+      refute {"users", "articles", "edit", :+} in Auth.list_rules("users", Subject)
+      refute {"scheduler", "articles", "edit", :-} in Auth.list_rules("scheduler", Subject)
+    end
+
+    test "does not remove non-static authorization rules" do
+      Auth.grant_permission("users", "articles", "edit")
+      Auth.deny_permission("scheduler", "articles", "edit")
+      assert {"users", "articles", "edit", :+} in Auth.list_rules("users", Subject)
+      assert {"scheduler", "articles", "edit", :-} in Auth.list_rules("scheduler", Subject)
+      MacroTest.init()
+      assert {"users", "articles", "edit", :+} in Auth.list_rules("users", Subject)
+      assert {"scheduler", "articles", "edit", :-} in Auth.list_rules("scheduler", Subject)
     end
 
     test "init removes any static permissions, subjects, and objects that are no longer defined" do
