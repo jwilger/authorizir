@@ -658,9 +658,12 @@ defmodule AuthorizirTest do
       role(:support, "Customer Support", implies: :users)
       role(:scheduler, "Event Scheduler", implies: :users)
       role(:admin, "Admin users", implies: [:editor, :support, :scheduler])
+      role(:no_access, "No Access")
 
+      grant(:*, on: :*, to: :admin)
       grant(:read, on: :documents, to: :users)
       deny(:read, on: :articles, to: :scheduler)
+      deny(:*, on: :*, to: :no_access)
     end
 
     setup do
@@ -763,10 +766,12 @@ defmodule AuthorizirTest do
 
     test "creates positive grant authorization rules" do
       assert {"users", "documents", "read", :+} in Auth.list_rules("users", Subject)
+      assert {"admin", "*", "*", :+} in Auth.list_rules("admin", Subject)
     end
 
     test "creates negative grant authorization rules" do
       assert {"scheduler", "articles", "read", :-} in Auth.list_rules("scheduler", Subject)
+      assert {"no_access", "*", "*", :-} in Auth.list_rules("no_access", Subject)
     end
 
     test "removes static authorization rules that are no longer defined" do
