@@ -613,6 +613,7 @@ defmodule Authorizir do
       import ImplHelper
 
       @impl Authorizir
+      # credo:disable-for-next-line Credo.Check.Refactor.ABCSize
       def init do
         set_up(Permission, @authorizir_repo, &permission_declarations/0, &register_permission/3)
         set_up(Subject, @authorizir_repo, &subject_declarations/0, &register_subject/3)
@@ -683,21 +684,23 @@ defmodule Authorizir do
     end
   end
 
+  defp to_string_list(value) when is_atom(value), do: [to_string(value)]
+  defp to_string_list(value) when is_list(value), do: Enum.map(value, fn v -> to_string(v) end)
+
+  @doc false
+  @spec string_list_from_option(keyword(), atom()) :: list(String.t())
+  def string_list_from_option(opts, key) do
+    case Keyword.fetch(opts, key) do
+      {:ok, value} -> to_string_list(value)
+      :error -> []
+    end
+  end
+
   defmacro permission(ext_id, description, opts \\ []) do
     ext_id = to_string(ext_id)
     description = to_string(description)
 
-    children =
-      case Keyword.fetch(opts, :implies) do
-        {:ok, implies} when is_list(implies) ->
-          Enum.map(implies, fn child -> to_string(child) end)
-
-        {:ok, child} ->
-          [to_string(child)]
-
-        :error ->
-          []
-      end
+    children = Authorizir.string_list_from_option(opts, :implies)
 
     quote bind_quoted: [ext_id: ext_id, description: description, children: children] do
       @permissions {ext_id, description, children}
@@ -712,17 +715,7 @@ defmodule Authorizir do
     ext_id = to_string(ext_id)
     description = to_string(description)
 
-    parents =
-      case Keyword.fetch(opts, :implies) do
-        {:ok, implies} when is_list(implies) ->
-          Enum.map(implies, fn parent -> to_string(parent) end)
-
-        {:ok, parent} ->
-          [to_string(parent)]
-
-        :error ->
-          []
-      end
+    parents = Authorizir.string_list_from_option(opts, :implies)
 
     quote bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
       @subjects {ext_id, description, parents}
@@ -739,17 +732,7 @@ defmodule Authorizir do
     ext_id = to_string(ext_id)
     description = to_string(description)
 
-    parents =
-      case Keyword.fetch(opts, :in) do
-        {:ok, implies} when is_list(implies) ->
-          Enum.map(implies, fn parent -> to_string(parent) end)
-
-        {:ok, parent} ->
-          [to_string(parent)]
-
-        :error ->
-          []
-      end
+    parents = Authorizir.string_list_from_option(opts, :in)
 
     quote bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
       @objects {ext_id, description, parents}
