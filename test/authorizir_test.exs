@@ -15,6 +15,7 @@ defmodule AuthorizirTest do
 
   setup do
     :ok = Sandbox.checkout(Repo)
+    Auth.init()
   end
 
   describe "register_subject/2" do
@@ -41,6 +42,14 @@ defmodule AuthorizirTest do
       %Subject{description: description} = Repo.get_by!(Subject, ext_id: ext_id)
       assert description == "new description"
     end
+
+    test "new subject is a direct child of the subject supremum" do
+      :ok = Auth.register_subject("foo", "bar")
+      supremum = Repo.get_by!(Subject, ext_id: "*")
+      foo = Repo.get_by!(Subject, ext_id: "foo")
+      parents = Subject.parents(foo) |> Repo.all()
+      assert parents == [supremum]
+    end
   end
 
   describe "register_object/2" do
@@ -66,6 +75,14 @@ defmodule AuthorizirTest do
       :ok = Auth.register_object(ext_id, "new description")
       %Object{description: description} = Repo.get_by!(Object, ext_id: ext_id)
       assert description == "new description"
+    end
+
+    test "new object is a direct child of the object supremum" do
+      :ok = Auth.register_object("foo", "bar")
+      supremum = Repo.get_by!(Object, ext_id: "*")
+      foo = Repo.get_by!(Object, ext_id: "foo")
+      parents = Object.parents(foo) |> Repo.all()
+      assert parents == [supremum]
     end
   end
 
@@ -94,6 +111,14 @@ defmodule AuthorizirTest do
       %Permission{description: description} = Repo.get_by!(Permission, ext_id: ext_id)
 
       assert description == "new description"
+    end
+
+    test "new permission is a direct child of the permission supremum" do
+      :ok = Auth.register_permission("foo", "bar")
+      supremum = Repo.get_by!(Permission, ext_id: "*")
+      foo = Repo.get_by!(Permission, ext_id: "foo")
+      parents = Permission.parents(foo) |> Repo.all()
+      assert parents == [supremum]
     end
   end
 
@@ -196,7 +221,7 @@ defmodule AuthorizirTest do
     test "returns {:error, :conflicting_rule_type} if the permission has already been explicitly denied for the given subject and object" do
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
-      {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
+      {:ok, permission} = Permission.new(UUID.generate(), "edit stuff") |> Repo.insert()
 
       :ok = Auth.grant_permission(subject.ext_id, object.ext_id, permission.ext_id)
 
@@ -313,6 +338,18 @@ defmodule AuthorizirTest do
       {:ok, subject_b} = Subject.new(UUID.generate(), "Subject B") |> Repo.insert()
 
       :ok = Auth.add_child(subject_a.ext_id, subject_b.ext_id, Subject)
+    end
+
+    test "removes the supremum as a direct parent of the child" do
+      supremum = Repo.get_by!(Subject, ext_id: "*")
+      {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
+      {:ok, subject_b} = Subject.new(UUID.generate(), "Subject B") |> Repo.insert()
+      :ok = Auth.add_child(supremum.ext_id, subject_b.ext_id, Subject)
+      :ok = Auth.add_child(subject_a.ext_id, subject_b.ext_id, Subject)
+
+      parents = Subject.parents(subject_b) |> Repo.all()
+
+      refute supremum in parents
     end
 
     test "creates Dagex parent/child association" do
@@ -451,6 +488,25 @@ defmodule AuthorizirTest do
       :denied = Auth.permission_granted?(subject.ext_id, object.ext_id, permission_a.ext_id)
     end
 
+    test "returns :denied when negative grant rule is applied to the sop via permission supremum" do
+      supremum = Repo.get_by!(Permission, ext_id: "*")
+      {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
+      {:ok, permission_p} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
+      {:ok, permission} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
+      :ok = Auth.add_child(supremum.ext_id, permission_a.ext_id, Permission)
+      :ok = Auth.add_child(permission_a.ext_id, permission_p.ext_id, Permission)
+      :ok = Auth.add_child(permission_p.ext_id, permission.ext_id, Permission)
+
+      {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
+      {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
+
+      :ok = Auth.deny_permission(subject.ext_id, object.ext_id, "*")
+
+      :denied = Auth.permission_granted?(subject.ext_id, object.ext_id, permission_a.ext_id)
+      :denied = Auth.permission_granted?(subject.ext_id, object.ext_id, permission_p.ext_id)
+      :denied = Auth.permission_granted?(subject.ext_id, object.ext_id, permission.ext_id)
+    end
+
     test "returns :denied when negative grant rule is applied to the sop via subject ancestors despite more specific positive grant" do
       {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject_p} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
@@ -494,6 +550,24 @@ defmodule AuthorizirTest do
       {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
 
       :ok = Auth.deny_permission(subject.ext_id, object.ext_id, permission.ext_id)
+      :ok = Auth.grant_permission(subject.ext_id, object.ext_id, permission_a.ext_id)
+
+      :denied = Auth.permission_granted?(subject.ext_id, object.ext_id, permission_a.ext_id)
+    end
+
+    test "returns :denied when negative grant rule is applied to the sop via permission supremum despite more specific positive grant" do
+      supremum = Repo.get_by!(Permission, ext_id: "*")
+      {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
+      {:ok, permission_p} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
+      {:ok, permission} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
+      :ok = Auth.add_child(supremum.ext_id, permission_a.ext_id, Permission)
+      :ok = Auth.add_child(permission_a.ext_id, permission_p.ext_id, Permission)
+      :ok = Auth.add_child(permission_p.ext_id, permission.ext_id, Permission)
+
+      {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
+      {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
+
+      :ok = Auth.deny_permission(subject.ext_id, object.ext_id, "*")
       :ok = Auth.grant_permission(subject.ext_id, object.ext_id, permission_a.ext_id)
 
       :denied = Auth.permission_granted?(subject.ext_id, object.ext_id, permission_a.ext_id)
@@ -682,12 +756,13 @@ defmodule AuthorizirTest do
     end
 
     test "makes collection object a child/descendant of any implied objects" do
+      supremum = Repo.get_by!(Object, ext_id: "*")
       documents = Repo.get_by!(Object, ext_id: "documents")
       faq = Repo.get_by!(Object, ext_id: "faq")
       articles = Repo.get_by!(Object, ext_id: "articles")
 
       assert Object.parents(faq) |> Repo.all() == [articles]
-      assert Object.ancestors(faq) |> Repo.all() == [articles, documents]
+      assert Object.ancestors(faq) |> Repo.all() == [supremum, articles, documents]
     end
 
     test "registers a permission leaf node with the specified description" do
@@ -730,6 +805,7 @@ defmodule AuthorizirTest do
     end
 
     test "makes role subject a child/descendant of any implied subjects" do
+      supremum = Repo.get_by!(Subject, ext_id: "*")
       users = Repo.get_by!(Subject, ext_id: "users")
       editor = Repo.get_by!(Subject, ext_id: "editor")
       support = Repo.get_by!(Subject, ext_id: "support")
@@ -737,7 +813,14 @@ defmodule AuthorizirTest do
       admin = Repo.get_by!(Subject, ext_id: "admin")
 
       assert Subject.parents(admin) |> Repo.all() == [scheduler, support, editor]
-      assert Subject.ancestors(admin) |> Repo.all() == [scheduler, support, editor, users]
+
+      assert Subject.ancestors(admin) |> Repo.all() == [
+               supremum,
+               scheduler,
+               support,
+               editor,
+               users
+             ]
     end
 
     test "registers a role as a object leaf node with the specified description" do
@@ -754,6 +837,7 @@ defmodule AuthorizirTest do
     end
 
     test "makes role object a child/descendant of any implied objects" do
+      supremum = Repo.get_by!(Object, ext_id: "*")
       users = Repo.get_by!(Object, ext_id: "users")
       editor = Repo.get_by!(Object, ext_id: "editor")
       support = Repo.get_by!(Object, ext_id: "support")
@@ -761,7 +845,14 @@ defmodule AuthorizirTest do
       admin = Repo.get_by!(Object, ext_id: "admin")
 
       assert Object.parents(admin) |> Repo.all() == [scheduler, support, editor]
-      assert Object.ancestors(admin) |> Repo.all() == [scheduler, support, editor, users]
+
+      assert Object.ancestors(admin) |> Repo.all() == [
+               supremum,
+               scheduler,
+               support,
+               editor,
+               users
+             ]
     end
 
     test "creates positive grant authorization rules" do
@@ -794,6 +885,8 @@ defmodule AuthorizirTest do
       assert {"scheduler", "articles", "edit", :-} in Auth.list_rules("scheduler", Subject)
     end
 
+    # This test is known to be flakey, but I haven't been able to figure out how
+    # to fix it.
     test "init removes any static permissions, subjects, and objects that are no longer defined" do
       permission = %Permission{ext_id: "old", description: "Old", static: true} |> Repo.insert!()
       subject = %Subject{ext_id: "old", description: "Old", static: true} |> Repo.insert!()
@@ -818,6 +911,8 @@ defmodule AuthorizirTest do
              end) == all
     end
 
+    # This test is known to be flakey, but I haven't been able to figure out how
+    # to fix it.
     test "init removes static children that are no longer set as children" do
       permission_delete = Repo.get_by!(Permission, ext_id: "delete")
       permission_foo = Permission.new("foo", "foo", true) |> Repo.insert!()

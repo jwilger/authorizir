@@ -159,7 +159,7 @@ defmodule Authorizir do
     case Subject.new(id, description, static)
          |> repo.insert(on_conflict: {:replace, [:description]}, conflict_target: :ext_id) do
       {:ok, _subject} ->
-        :ok
+        :ok = add_child(repo, "*", id, Subject)
 
       {:error, changeset} ->
         cond do
@@ -184,7 +184,7 @@ defmodule Authorizir do
     case Object.new(id, description, static)
          |> repo.insert(on_conflict: {:replace, [:description]}, conflict_target: :ext_id) do
       {:ok, _object} ->
-        :ok
+        :ok = add_child(repo, "*", id, Object)
 
       {:error, changeset} ->
         cond do
@@ -209,7 +209,7 @@ defmodule Authorizir do
     case Permission.new(id, description, static)
          |> repo.insert(on_conflict: {:replace, [:description]}, conflict_target: :ext_id) do
       {:ok, _permisson} ->
-        :ok
+        :ok = add_child(repo, "*", id, Permission)
 
       {:error, changeset} ->
         cond do
@@ -280,7 +280,11 @@ defmodule Authorizir do
     with {:ok, parent} <- get_parent(repo, type, parent_id),
          {:ok, child} <- get_child(repo, type, child_id),
          {:edge_created, _edge} <- type.create_edge(parent, child) |> repo.dagex_update() do
-      :ok
+      if parent_id == "*" do
+        :ok
+      else
+        :ok = remove_child(repo, "*", child_id, type)
+      end
     end
   end
 
@@ -366,12 +370,16 @@ defmodule Authorizir do
   end
 
   defp authorization_rule_applies?(repo, subject, object, permission, :-) do
+    supremum = repo.get_by!(Permission, ext_id: "*")
+
     from([r, s, o] in authorization_rules_for(subject, object),
       join: p in subquery(Permission.with_descendants(permission)),
       on: p.id == r.permission_id,
       where: r.rule_type == :-
     )
-    |> repo.exists?()
+    |> repo.exists?() ||
+      if permission != supremum,
+        do: authorization_rule_applies?(repo, subject, object, supremum, :-)
   end
 
   defp authorization_rule_applies?(repo, subject, object, permission, :+) do
