@@ -417,8 +417,6 @@ defmodule Authorizir do
   defp object_node(repo, ext_id),
     do: repo.get_by(Object, ext_id: ext_id) || {:error, :invalid_object}
 
-  defp permission_node(_repo, "*"), do: Permission.supremum()
-
   defp permission_node(repo, ext_id),
     do: repo.get_by(Permission, ext_id: ext_id) || {:error, :invalid_permission}
 
@@ -536,11 +534,11 @@ defmodule Authorizir do
     @spec create_rule(Ecto.Repo.t(), String.t(), String.t(), String.t(), :+ | :-) ::
             :ok | {:error, atom()}
     def create_rule(repo, subject, object, permission, :+) do
-      :ok = Authorizir.grant_permission(repo, subject, object, permission, true)
+      Authorizir.grant_permission(repo, subject, object, permission, true)
     end
 
     def create_rule(repo, subject, object, permission, :-) do
-      :ok = Authorizir.deny_permission(repo, subject, object, permission, true)
+      Authorizir.deny_permission(repo, subject, object, permission, true)
     end
 
     @spec build_tree(module(), Ecto.Repo.t(), fun()) :: :ok
@@ -704,8 +702,7 @@ defmodule Authorizir do
 
     children = Authorizir.string_list_from_option(opts, :implies)
 
-    quote location: :keep,
-          bind_quoted: [ext_id: ext_id, description: description, children: children] do
+    quote bind_quoted: [ext_id: ext_id, description: description, children: children] do
       @permissions {ext_id, description, children}
 
       def permission_declarations, do: @permissions
@@ -720,8 +717,7 @@ defmodule Authorizir do
 
     parents = Authorizir.string_list_from_option(opts, :implies)
 
-    quote location: :keep,
-          bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
+    quote bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
       @subjects {ext_id, description, parents}
       @objects {ext_id, description, parents}
 
@@ -738,8 +734,7 @@ defmodule Authorizir do
 
     parents = Authorizir.string_list_from_option(opts, :in)
 
-    quote location: :keep,
-          bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
+    quote bind_quoted: [ext_id: ext_id, description: description, parents: parents] do
       @objects {ext_id, description, parents}
 
       def object_declarations, do: @objects
@@ -753,8 +748,7 @@ defmodule Authorizir do
     object = to_string(object)
     subject = to_string(subject)
 
-    quote location: :keep,
-          bind_quoted: [permission: permission, object: object, subject: subject] do
+    quote bind_quoted: [permission: permission, object: object, subject: subject] do
       @rules {subject, object, permission, :+}
 
       def rule_declarations, do: @rules
@@ -768,8 +762,7 @@ defmodule Authorizir do
     object = to_string(object)
     subject = to_string(subject)
 
-    quote location: :keep,
-          bind_quoted: [permission: permission, object: object, subject: subject] do
+    quote bind_quoted: [permission: permission, object: object, subject: subject] do
       @rules {subject, object, permission, :-}
 
       def rule_declarations, do: @rules

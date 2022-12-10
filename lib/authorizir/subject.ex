@@ -26,5 +26,5 @@ defmodule Authorizir.Subject do
   end
 
   @spec supremum :: t()
-  def supremum, do: %__MODULE__{id: 0, ext_id: "*", description: "Subject Supremum"}
+  def supremum, do: %__MODULE__{ext_id: "*", description: "Subject Supremum"}
 end
