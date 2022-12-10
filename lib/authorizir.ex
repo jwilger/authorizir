@@ -407,12 +407,8 @@ defmodule Authorizir do
     end
   end
 
-  defp subject_node(_repo, "*"), do: Subject.supremum()
-
   defp subject_node(repo, ext_id),
     do: repo.get_by(Subject, ext_id: ext_id) || {:error, :invalid_subject}
-
-  defp object_node(_repo, "*"), do: Object.supremum()
 
   defp object_node(repo, ext_id),
     do: repo.get_by(Object, ext_id: ext_id) || {:error, :invalid_object}
@@ -472,48 +468,6 @@ defmodule Authorizir do
 
     import Ecto.Query, only: [from: 2, exclude: 2]
 
-    @spec remove_orphans(m :: module(), Ecto.Repo.t(), fun()) :: m :: module()
-    def remove_orphans(AuthorizationRule, repo, _fn) do
-      q = from(r in AuthorizationRule, where: r.static == true)
-      repo.delete_all(q)
-      AuthorizationRule
-    end
-
-    def remove_orphans(type, repo, declarations_fn) do
-      keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> ext_id end)
-      q = from(r in type, where: r.static == true and r.ext_id not in ^keep_ids)
-      repo.delete_all(q)
-      type
-    end
-
-    @spec register_items(
-            AuthorizationRule,
-            Ecto.Repo.t(),
-            fun(),
-            (Ecto.Repo.t(), String.t(), String.t(), String.t(), :+ | :- -> any())
-          ) :: AuthorizationRule
-    def register_items(AuthorizationRule, repo, declarations_fn, register_fn) do
-      for {subject, object, permission, type} <- declarations_fn.() do
-        register_fn.(repo, subject, object, permission, type)
-      end
-
-      AuthorizationRule
-    end
-
-    @spec register_items(
-            m :: module(),
-            Ecto.Repo.t(),
-            fun(),
-            (String.t(), String.t(), boolean() -> any())
-          ) :: m :: module()
-    def register_items(type, _repo, declarations_fn, register_fn) do
-      for {ext_id, description, _children} <- declarations_fn.() do
-        register_fn.(ext_id, description, true)
-      end
-
-      type
-    end
-
     @spec set_up(
             AuthorizationRule,
             Ecto.Repo.t(),
@@ -524,6 +478,7 @@ defmodule Authorizir do
             :ok
     def set_up(type, repo, declarations_fn, register_fn) do
       type
+      |> upsert_supremum(repo)
       |> remove_orphans(repo, declarations_fn)
       |> register_items(repo, declarations_fn, register_fn)
       |> build_tree(repo, declarations_fn)
@@ -541,10 +496,48 @@ defmodule Authorizir do
       Authorizir.deny_permission(repo, subject, object, permission, true)
     end
 
-    @spec build_tree(module(), Ecto.Repo.t(), fun()) :: :ok
-    def build_tree(AuthorizationRule, _repo, _fn), do: :ok
+    defp remove_orphans(AuthorizationRule, repo, _fn) do
+      q = from(r in AuthorizationRule, where: r.static == true)
+      repo.delete_all(q)
+      AuthorizationRule
+    end
 
-    def build_tree(Permission = type, repo, declarations_fn) do
+    defp remove_orphans(type, repo, declarations_fn) do
+      keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> ext_id end)
+      q = from(r in type, where: r.static == true and r.ext_id not in ^keep_ids)
+      repo.delete_all(q)
+      type
+    end
+
+    defp register_items(AuthorizationRule, repo, declarations_fn, register_fn) do
+      for {subject, object, permission, type} <- declarations_fn.() do
+        register_fn.(repo, subject, object, permission, type)
+      end
+
+      AuthorizationRule
+    end
+
+    defp register_items(type, _repo, declarations_fn, register_fn) do
+      for {ext_id, description, _children} <- declarations_fn.() do
+        register_fn.(ext_id, description, true)
+      end
+
+      type
+    end
+
+    defp upsert_supremum(AuthorizationRule, _repo), do: AuthorizationRule
+
+    defp upsert_supremum(type, repo) do
+      %{ext_id: "*", description: "Supremum"}
+      |> then(&struct!(type, &1))
+      |> repo.insert!(on_conflict: :nothing, conflict_target: :ext_id)
+
+      type
+    end
+
+    defp build_tree(AuthorizationRule, _repo, _fn), do: :ok
+
+    defp build_tree(Permission = type, repo, declarations_fn) do
       for {ext_id, _description, children} <- declarations_fn.() do
         item = repo.get_by(type, ext_id: ext_id)
 
@@ -563,7 +556,7 @@ defmodule Authorizir do
       :ok
     end
 
-    def build_tree(type, repo, declarations_fn) do
+    defp build_tree(type, repo, declarations_fn) do
       for {ext_id, _description, parents} <- declarations_fn.() do
         item = repo.get_by(type, ext_id: ext_id)
 
