@@ -43,6 +43,7 @@ RUN apt-get update \
   #
   # Install dependencies
   && apt-get install -y build-essential inotify-tools \
+    postgresql-client \
   #
   # Clean up
   && apt-get autoremove -y \
