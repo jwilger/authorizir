@@ -1,5 +1,5 @@
 defmodule AuthorizirTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case
 
   import Ecto.Query, only: [from: 2]
 
@@ -887,7 +887,7 @@ defmodule AuthorizirTest do
 
     # This test is known to be flakey, but I haven't been able to figure out how
     # to fix it.
-    test "init removes any static permissions, subjects, and objects that are no longer defined" do
+    test "KNOWN FLAKEY: init removes any static permissions, subjects, and objects that are no longer defined" do
       permission = %Permission{ext_id: "old", description: "Old", static: true} |> Repo.insert!()
       subject = %Subject{ext_id: "old", description: "Old", static: true} |> Repo.insert!()
       object = %Object{ext_id: "old", description: "Old", static: true} |> Repo.insert!()
@@ -913,7 +913,7 @@ defmodule AuthorizirTest do
 
     # This test is known to be flakey, but I haven't been able to figure out how
     # to fix it.
-    test "init removes static children that are no longer set as children" do
+    test "KNOWN FLAKEY: init removes static children that are no longer set as children" do
       permission_delete = Repo.get_by!(Permission, ext_id: "delete")
       permission_foo = Permission.new("foo", "foo", true) |> Repo.insert!()
       sub_editor = Repo.get_by!(Subject, ext_id: "editor")
