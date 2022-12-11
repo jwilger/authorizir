@@ -25,6 +25,8 @@ defmodule Authorizir.Subject do
     |> unique_constraint(:ext_id)
   end
 
-  @spec supremum :: t()
-  def supremum, do: %__MODULE__{ext_id: "*", description: "Subject Supremum"}
+  defimpl Authorizir.ToAuthorizirId do
+    @spec to_ext_id(@for.t()) :: String.t()
+    def to_ext_id(term), do: term.ext_id
+  end
 end

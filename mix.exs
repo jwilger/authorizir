@@ -144,6 +144,7 @@ defmodule Authorizir.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.6"},
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
+      {:faker, "~> 0.17", only: :test},
       {:postgrex, ">= 0.0.0"},
       {:sobelow, "~> 0.9", only: [:dev, :test], runtime: false},
       {:typed_ecto_schema, "~> 0.3"},

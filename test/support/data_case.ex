@@ -20,6 +20,8 @@ defmodule AuthorizirTest.DataCase do
 
   using do
     quote do
+      use Authorizir.TestCase
+
       alias AuthorizirTest.Repo
 
       import Ecto
