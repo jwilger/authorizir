@@ -154,6 +154,7 @@ defmodule Authorizir do
   @spec register_subject(Ecto.Repo.t(), to_ext_id(), String.t(), static :: boolean()) ::
           :ok | {:error, :description_is_required | :id_is_required}
   def register_subject(repo, id, description, static \\ false) do
+    id = to_ext_id(id)
     case Subject.new(id, description, static)
          |> repo.insert(
            on_conflict: {:replace, [:description, :static]},
@@ -182,6 +183,7 @@ defmodule Authorizir do
   @spec register_object(Ecto.Repo.t(), to_ext_id(), String.t(), static :: boolean()) ::
           :ok | {:error, :description_is_required | :id_is_required}
   def register_object(repo, id, description, static \\ false) do
+    id = to_ext_id(id)
     case Object.new(id, description, static)
          |> repo.insert(
            on_conflict: {:replace, [:description, :static]},
@@ -210,6 +212,7 @@ defmodule Authorizir do
   @spec register_permission(Ecto.Repo.t(), to_ext_id(), String.t(), static :: boolean()) ::
           :ok | {:error, :description_is_required | :id_is_required}
   def register_permission(repo, id, description, static \\ false) do
+    id = to_ext_id(id)
     case Permission.new(id, description, static)
          |> repo.insert(
            on_conflict: {:replace, [:description, :static]},
@@ -512,7 +515,7 @@ defmodule Authorizir do
     end
 
     def remove_orphans(type, repo, declarations_fn) do
-      keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> ext_id end)
+      keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> to_ext_id(ext_id) end)
 
       q =
         case type do
@@ -576,6 +579,7 @@ defmodule Authorizir do
     @spec build_tree(m, Ecto.Repo.t(), function()) :: m when m: module()
     def build_tree(Permission = type, repo, declarations_fn) do
       for {ext_id, _description, children} <- declarations_fn.() do
+        ext_id = to_ext_id(ext_id)
         item = repo.get_by(type, ext_id: ext_id)
 
         from(c in type.children(item), where: c.static == true)
@@ -595,6 +599,7 @@ defmodule Authorizir do
 
     def build_tree(type, repo, declarations_fn) do
       for {ext_id, _description, parents} <- declarations_fn.() do
+        ext_id = to_ext_id(ext_id)
         item = repo.get_by(type, ext_id: ext_id)
 
         from(c in type.parents(item), where: c.static == true and c.ext_id not in ^parents)
