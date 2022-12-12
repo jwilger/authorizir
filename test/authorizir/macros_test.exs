@@ -13,28 +13,28 @@ defmodule Authorizir.MacrosTest do
     @moduledoc false
     use Authorizir, repo: Repo, application: :authorizir
 
-    collection(:documents, "Documents")
-    collection(:articles, "Articles", in: :documents)
-    collection(:faq, "FAQ", in: :articles)
-    collection(:events, "Events")
+    collection :documents, "Documents"
+    collection :articles, "Articles", in: :documents
+    collection :faq, "FAQ", in: :articles
+    collection :events, "Events"
 
-    permission(:read, "Read")
-    permission(:edit, "Edit", implies: :read)
-    permission(:create, "Create", implies: :edit)
-    permission(:delete, "Delete", implies: :edit)
-    permission(:manage, "All CRUD permissions", implies: [:create, :delete, :edit, :read])
+    permission :read, "Read"
+    permission :edit, "Edit", implies: :read
+    permission :create, "Create", implies: :edit
+    permission :delete, "Delete", implies: :edit
+    permission :manage, "All CRUD permissions", implies: [:create, :delete, :edit, :read]
 
-    role(:users, "Users")
-    role(:editor, "Document editors", implies: :users)
-    role(:support, "Customer Support", implies: :users)
-    role(:scheduler, "Event Scheduler", implies: :users)
-    role(:admin, "Admin users", implies: [:editor, :support, :scheduler])
-    role(:no_access, "No Access")
+    role :users, "Users"
+    role :editor, "Document editors", implies: :users
+    role :support, "Customer Support", implies: :users
+    role :scheduler, "Event Scheduler", implies: :users
+    role :admin, "Admin users", implies: [:editor, :support, :scheduler]
+    role :no_access, "No Access"
 
-    grant(:*, on: :*, to: :admin)
-    grant(:read, on: :documents, to: :users)
-    deny(:read, on: :articles, to: :scheduler)
-    deny(:*, on: :*, to: :no_access)
+    grant :*, on: :*, to: :admin
+    grant :read, on: :documents, to: :users
+    deny :read, on: :articles, to: :scheduler
+    deny :*, on: :*, to: :no_access
   end
 
   setup do
