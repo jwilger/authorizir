@@ -22,8 +22,6 @@ defmodule AuthorizirTest.DataCase do
     quote do
       use Authorizir.TestCase
 
-      alias AuthorizirTest.Repo
-
       import Ecto
       import Ecto.{Changeset, Query}
       import AuthorizirTest.DataCase

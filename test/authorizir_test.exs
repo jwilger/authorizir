@@ -1,6 +1,8 @@
 defmodule AuthorizirTest do
   use AuthorizirTest.DataCase
 
+  alias AuthorizirTest.Repo
+
   alias Authorizir.{Object, Permission, Subject}
   alias Ecto.UUID
 
@@ -336,18 +338,6 @@ defmodule AuthorizirTest do
       :ok = Auth.add_child(subject_a, subject_b, Subject)
     end
 
-    test "removes the supremum as a direct parent of the child" do
-      supremum = Repo.get_by!(Subject, ext_id: "*")
-      {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
-      {:ok, subject_b} = Subject.new(UUID.generate(), "Subject B") |> Repo.insert()
-      :ok = Auth.add_child(supremum, subject_b, Subject)
-      :ok = Auth.add_child(subject_a, subject_b, Subject)
-
-      parents = Subject.parents(subject_b) |> Repo.all()
-
-      refute supremum in parents
-    end
-
     test "creates Dagex parent/child association" do
       {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject_b} = Subject.new(UUID.generate(), "Subject B") |> Repo.insert()
@@ -393,17 +383,6 @@ defmodule AuthorizirTest do
       :ok = Auth.remove_child(subject_a, subject_b, Subject)
 
       refute subject_a in (Subject.parents(subject_b) |> Repo.all())
-    end
-
-    test "makes the node a direct child of the supremum if it has no other parents" do
-      supremum = Repo.get_by!(Subject, ext_id: "*")
-      subject_a = register(Subject, UUID.generate(), "Subject A")
-      subject_b = register(Subject, UUID.generate(), "Subject B")
-
-      :ok = Auth.add_child(subject_a, subject_b, Subject)
-      :ok = Auth.remove_child(subject_a, subject_b, Subject)
-
-      assert Subject.parents(subject_b) |> Repo.all() == [supremum]
     end
   end
 

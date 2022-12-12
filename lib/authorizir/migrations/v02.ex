@@ -26,9 +26,11 @@ defmodule Authorizir.Migrations.V02 do
     end
 
     Dagex.Migrations.up(version: 2)
-    setup_node_type("authorizir_subjects", "2.0.0")
-    setup_node_type("authorizir_objects", "2.0.0")
-    setup_node_type("authorizir_permissions", "2.0.0")
+    Dagex.Migrations.up(version: 3)
+    Dagex.Migrations.up(version: 4)
+    setup_node_type("authorizir_subjects", "3.0.0")
+    setup_node_type("authorizir_objects", "3.0.0")
+    setup_node_type("authorizir_permissions", "3.0.0")
     :ok
   end
 
@@ -37,6 +39,8 @@ defmodule Authorizir.Migrations.V02 do
     setup_node_type("authorizir_subjects", "1.0.0")
     setup_node_type("authorizir_objects", "1.0.0")
     setup_node_type("authorizir_permissions", "1.0.0")
+    Dagex.Migrations.down(version: 4)
+    Dagex.Migrations.down(version: 3)
     Dagex.Migrations.down(version: 2)
 
     alter table("authorizir_subjects") do

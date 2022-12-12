@@ -289,11 +289,7 @@ defmodule Authorizir do
     with {:ok, parent} <- get_parent(repo, type, parent_id),
          {:ok, child} <- get_child(repo, type, child_id),
          {:edge_created, _edge} <- type.create_edge(parent, child) |> repo.dagex_update() do
-      if parent_id == "*" do
-        :ok
-      else
-        :ok = remove_child(repo, "*", child_id, type)
-      end
+      :ok
     end
   end
 
@@ -329,11 +325,7 @@ defmodule Authorizir do
     with {:ok, parent} <- get_parent(repo, type, parent_id),
          {:ok, child} <- get_child(repo, type, child_id),
          {:edge_removed, _edge} <- type.remove_edge(parent, child) |> repo.dagex_update() do
-      if child |> type.parents() |> repo.aggregate(:count) == 0 do
-        add_child(repo, "*", child_id, type)
-      else
-        :ok
-      end
+      :ok
     end
   end
 
@@ -498,7 +490,7 @@ defmodule Authorizir do
   defmodule ImplHelper do
     @moduledoc false
 
-    import Ecto.Query, only: [from: 2, exclude: 2]
+    import Ecto.Query, only: [from: 2, exclude: 2, where: 2]
 
     @spec create_rule(Ecto.Repo.t(), String.t(), String.t(), String.t(), :+ | :-) ::
             :ok | {:error, atom()}
@@ -510,6 +502,8 @@ defmodule Authorizir do
       Authorizir.deny_permission(repo, subject, object, permission, true)
     end
 
+    @spec remove_orphans(m, Ecto.Repo.t(), function()) :: m when m: module()
+
     def remove_orphans(AuthorizationRule, repo, _fn) do
       from(r in AuthorizationRule, where: r.static == true)
       |> repo.delete_all()
@@ -517,7 +511,6 @@ defmodule Authorizir do
       AuthorizationRule
     end
 
-    @spec remove_orphans(m, Ecto.Repo.t(), function()) :: m when m: module()
     def remove_orphans(type, repo, declarations_fn) do
       keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> ext_id end)
 
@@ -540,7 +533,7 @@ defmodule Authorizir do
           Permission ->
             from(r in AuthorizationRule,
               join: p in Permission,
-              on: p.id == r.subject_id,
+              on: p.id == r.permission_id,
               where: p.static == true and p.ext_id not in ^keep_ids
             )
         end
@@ -604,16 +597,23 @@ defmodule Authorizir do
       for {ext_id, _description, parents} <- declarations_fn.() do
         item = repo.get_by(type, ext_id: ext_id)
 
-        from(c in type.parents(item), where: c.static == true)
+        from(c in type.parents(item), where: c.static == true and c.ext_id not in ^parents)
         |> exclude(:distinct)
         |> repo.all()
         |> Enum.each(fn parent ->
           Authorizir.remove_child(repo, parent.ext_id, ext_id, type)
         end)
 
-        for parent <- parents do
+        existing =
+          type.parents(item)
+          |> where(static: true)
+          |> repo.all()
+          |> Enum.map(fn x -> x.ext_id end)
+
+        Enum.filter(parents, fn parent -> parent not in existing end)
+        |> Enum.each(fn parent ->
           Authorizir.add_child(repo, parent, ext_id, type)
-        end
+        end)
       end
 
       :ok

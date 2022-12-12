@@ -1,6 +1,8 @@
 defmodule Authorizir.MacrosTest do
   use AuthorizirTest.DataCase
 
+  alias AuthorizirTest.Repo
+
   alias Authorizir.{
     Object,
     Permission,
@@ -72,7 +74,7 @@ defmodule Authorizir.MacrosTest do
     faq = Repo.get_by!(Object, ext_id: "faq")
     articles = Repo.get_by!(Object, ext_id: "articles")
 
-    assert Object.parents(faq) |> Repo.all() == [articles]
+    assert Object.parents(faq) |> Repo.all() == [supremum, articles]
     assert Object.ancestors(faq) |> Repo.all() == [supremum, articles, documents]
   end
 
@@ -123,7 +125,7 @@ defmodule Authorizir.MacrosTest do
     scheduler = Repo.get_by!(Subject, ext_id: "scheduler")
     admin = Repo.get_by!(Subject, ext_id: "admin")
 
-    assert Subject.parents(admin) |> Repo.all() == [scheduler, support, editor]
+    assert Subject.parents(admin) |> Repo.all() == [supremum, scheduler, support, editor]
 
     assert Subject.ancestors(admin) |> Repo.all() == [
              supremum,
@@ -147,10 +149,8 @@ defmodule Authorizir.MacrosTest do
     assert admin.description == "Admin users"
   end
 
-  # This test is known to be flakey, but I haven't been able to figure out how
-  # to fix it.
   @tag :flakey
-  test "KNOWN FLAKEY: init removes any static permissions, subjects, and objects that are no longer defined" do
+  test "init removes any static permissions, subjects, and objects that are no longer defined" do
     permission = register(Permission, "old", "Old", true)
     subject = register(Subject, "old", "Old", true)
     object = register(Object, "old", "Old", true)
@@ -169,7 +169,7 @@ defmodule Authorizir.MacrosTest do
     scheduler = Repo.get_by!(Object, ext_id: "scheduler")
     admin = Repo.get_by!(Object, ext_id: "admin")
 
-    assert Object.parents(admin) |> Repo.all() == [scheduler, support, editor]
+    assert Object.parents(admin) |> Repo.all() == [supremum, scheduler, support, editor]
 
     assert Object.ancestors(admin) |> Repo.all() == [
              supremum,
@@ -222,10 +222,8 @@ defmodule Authorizir.MacrosTest do
            end) == all
   end
 
-  # This test is known to be flakey, but I haven't been able to figure out how
-  # to fix it.
   @tag :flakey
-  test "KNOWN FLAKEY: init removes static children that are no longer set as children" do
+  test "init removes static children that are no longer set as children" do
     permission_delete = Repo.get_by!(Permission, ext_id: "delete")
     permission_foo = register(Permission, "foo", "foo", true)
     sub_editor = Repo.get_by!(Subject, ext_id: "editor")
@@ -266,5 +264,53 @@ defmodule Authorizir.MacrosTest do
     assert permission_x in (Permission.children(permission_delete) |> Repo.all())
     assert sub_x in (Subject.children(sub_editor) |> Repo.all())
     assert obj_x in (Object.children(obj_editor) |> Repo.all())
+  end
+
+  @tag :flakey
+  test "init removes rules defined on non-static objects and permissions if associated with a static subject that is no longer defined" do
+    static_subject = register(Subject, Faker.String.base64(), Faker.String.base64(), true)
+    subject = register(Subject, Faker.String.base64(), Faker.String.base64(), false)
+    :ok = MacroTest.add_child(static_subject, subject, Subject)
+    object = register(Object, Faker.String.base64(), Faker.String.base64(), false)
+    permission = register(Permission, Faker.String.base64(), Faker.String.base64(), false)
+    :ok = MacroTest.grant_permission(static_subject, object, permission)
+
+    assert MacroTest.permission_granted?(subject, object, permission) == :granted
+
+    MacroTest.init()
+
+    assert MacroTest.permission_granted?(subject, object, permission) == :denied
+  end
+
+  @tag :flakey
+  test "init removes rules defined on non-static subjects and permissions if associated with a static object that is no longer defined" do
+    subject = register(Subject, Faker.String.base64(), Faker.String.base64(), false)
+    static_object = register(Object, Faker.String.base64(), Faker.String.base64(), true)
+    object = register(Object, Faker.String.base64(), Faker.String.base64(), false)
+    :ok = MacroTest.add_child(static_object, object, Object)
+    permission = register(Permission, Faker.String.base64(), Faker.String.base64(), false)
+    :ok = MacroTest.grant_permission(subject, static_object, permission)
+
+    assert MacroTest.permission_granted?(subject, object, permission) == :granted
+
+    MacroTest.init()
+
+    assert MacroTest.permission_granted?(subject, object, permission) == :denied
+  end
+
+  @tag :flakey
+  test "init removes rules defined on non-static subjects and objects if associated with a static permission that is no longer defined" do
+    subject = register(Subject, Faker.String.base64(), Faker.String.base64(), false)
+    object = register(Object, Faker.String.base64(), Faker.String.base64(), false)
+    static_permission = register(Permission, Faker.String.base64(), Faker.String.base64(), true)
+    permission = register(Permission, Faker.String.base64(), Faker.String.base64(), false)
+    :ok = MacroTest.add_child(static_permission, permission, Permission)
+    :ok = MacroTest.grant_permission(subject, object, static_permission)
+
+    assert MacroTest.permission_granted?(subject, object, permission) == :granted
+
+    MacroTest.init()
+
+    assert MacroTest.permission_granted?(subject, object, permission) == :denied
   end
 end
