@@ -64,6 +64,26 @@ defmodule AuthorizirTest do
     end
   end
 
+  describe "subject_members/1" do
+    test "returns an error if the subject does not exist" do
+      assert Auth.subject_members("no_such_subject") == {:error, :invalid_subject}
+    end
+
+    test "returns an empty list if the subject has no children" do
+      :ok = Auth.register_subject("foo", "bar")
+      assert Auth.subject_members("foo") == {:ok, []}
+    end
+
+    test "returns a list of all descendants of the subject" do
+      :ok = Auth.register_subject("foo", "bar")
+      :ok = Auth.register_subject("baz", "bam")
+      :ok = Auth.register_subject("ham", "spam")
+      :ok = Auth.add_child("foo", "baz", Subject)
+      :ok = Auth.add_child("baz", "ham", Subject)
+      assert Auth.subject_members("foo") == {:ok, ["baz", "ham"]}
+    end
+  end
+
   describe "register_object/2" do
     test "returns :ok if object was successfully registered" do
       :ok = Auth.register_object(UUID.generate(), "some description")
@@ -95,6 +115,26 @@ defmodule AuthorizirTest do
       foo = Repo.get_by!(Object, ext_id: "foo")
       parents = Object.parents(foo) |> Repo.all()
       assert parents == [supremum]
+    end
+  end
+
+  describe "object_members/1" do
+    test "returns an error if the object does not exist" do
+      assert Auth.object_members("no_such_object") == {:error, :invalid_object}
+    end
+
+    test "returns an empty list if the object has no children" do
+      :ok = Auth.register_object("foo", "bar")
+      assert Auth.object_members("foo") == {:ok, []}
+    end
+
+    test "returns a list of all descendants of the object" do
+      :ok = Auth.register_object("foo", "bar")
+      :ok = Auth.register_object("baz", "bam")
+      :ok = Auth.register_object("ham", "spam")
+      :ok = Auth.add_child("foo", "baz", Object)
+      :ok = Auth.add_child("baz", "ham", Object)
+      assert Auth.object_members("foo") == {:ok, ["baz", "ham"]}
     end
   end
 
@@ -131,6 +171,26 @@ defmodule AuthorizirTest do
       foo = Repo.get_by!(Permission, ext_id: "foo")
       parents = Permission.parents(foo) |> Repo.all()
       assert parents == [supremum]
+    end
+  end
+
+  describe "permission_members/1" do
+    test "returns an error if the permission does not exist" do
+      assert Auth.permission_members("no_such_permission") == {:error, :invalid_permission}
+    end
+
+    test "returns an empty list if the permission has no children" do
+      :ok = Auth.register_permission("foo", "bar")
+      assert Auth.permission_members("foo") == {:ok, []}
+    end
+
+    test "returns a list of all descendants of the permission" do
+      :ok = Auth.register_permission("foo", "bar")
+      :ok = Auth.register_permission("baz", "bam")
+      :ok = Auth.register_permission("ham", "spam")
+      :ok = Auth.add_child("foo", "baz", Permission)
+      :ok = Auth.add_child("baz", "ham", Permission)
+      assert Auth.permission_members("foo") == {:ok, ["baz", "ham"]}
     end
   end
 

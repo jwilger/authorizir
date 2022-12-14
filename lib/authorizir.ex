@@ -140,7 +140,7 @@ defmodule Authorizir do
 
   import Authorizir.ErrorHelpers, only: [errors_on: 2]
   import Authorizir.ToAuthorizirId, only: [to_ext_id: 1]
-  import Ecto.Query, only: [from: 2]
+  import Ecto.Query, only: [from: 2, select: 2]
 
   alias Authorizir.{AuthorizationRule, Object, Permission, Subject, ToAuthorizirId}
 
@@ -155,6 +155,7 @@ defmodule Authorizir do
           :ok | {:error, :description_is_required | :id_is_required}
   def register_subject(repo, id, description, static \\ false) do
     id = to_ext_id(id)
+
     case Subject.new(id, description, static)
          |> repo.insert(
            on_conflict: {:replace, [:description, :static]},
@@ -184,6 +185,7 @@ defmodule Authorizir do
           :ok | {:error, :description_is_required | :id_is_required}
   def register_object(repo, id, description, static \\ false) do
     id = to_ext_id(id)
+
     case Object.new(id, description, static)
          |> repo.insert(
            on_conflict: {:replace, [:description, :static]},
@@ -213,6 +215,7 @@ defmodule Authorizir do
           :ok | {:error, :description_is_required | :id_is_required}
   def register_permission(repo, id, description, static \\ false) do
     id = to_ext_id(id)
+
     case Permission.new(id, description, static)
          |> repo.insert(
            on_conflict: {:replace, [:description, :static]},
@@ -296,6 +299,66 @@ defmodule Authorizir do
     end
   end
 
+  @callback subject_members(id :: to_ext_id()) ::
+              {:ok, list(id :: String.t())} | {:error, :invalid_subject}
+
+  @spec subject_members(Ecto.Repo.t(), to_ext_id()) ::
+          {:ok, list(String.t())} | {:error, :invalid_subject}
+  def subject_members(repo, id) do
+    case get_node(repo, Subject, id, :subject) do
+      {:ok, subject} ->
+        subject
+        |> Subject.descendants()
+        |> select([:ext_id])
+        |> repo.all()
+        |> Enum.map(fn s -> s.ext_id end)
+        |> then(&{:ok, &1})
+
+      error ->
+        error
+    end
+  end
+
+  @callback object_members(id :: to_ext_id()) ::
+              {:ok, list(id :: String.t())} | {:error, :invalid_subject}
+
+  @spec object_members(Ecto.Repo.t(), to_ext_id()) ::
+          {:ok, list(String.t())} | {:error, :invalid_subject}
+  def object_members(repo, id) do
+    case get_node(repo, Object, id, :object) do
+      {:ok, object} ->
+        object
+        |> Object.descendants()
+        |> select([:ext_id])
+        |> repo.all()
+        |> Enum.map(fn s -> s.ext_id end)
+        |> then(&{:ok, &1})
+
+      error ->
+        error
+    end
+  end
+
+  @callback permission_members(id :: to_ext_id()) ::
+              {:ok, list(id :: String.t())} | {:error, :invalid_subject}
+
+  @spec permission_members(Ecto.Repo.t(), to_ext_id()) ::
+          {:ok, list(String.t())} | {:error, :invalid_subject}
+  def permission_members(repo, id) do
+    case get_node(repo, Permission, id, :permission) do
+      {:ok, permission} ->
+        permission
+        |> Permission.descendants()
+        |> select([:ext_id])
+        |> repo.all()
+        |> Enum.map(fn s -> s.ext_id end)
+        |> then(&{:ok, &1})
+
+      error ->
+        error
+    end
+  end
+
   defp get_parent(repo, type, parent_id), do: get_node(repo, type, parent_id, :parent)
 
   defp get_child(repo, type, child_id), do: get_node(repo, type, child_id, :child)
@@ -303,7 +366,7 @@ defmodule Authorizir do
   defp get_node(repo, type, id, rel) do
     id = to_ext_id(id)
     get = fn -> repo.get_by(type, ext_id: id) end
-    msg = %{child: :invalid_child, parent: :invalid_parent} |> Map.fetch!(rel)
+    msg = String.to_existing_atom("invalid_#{rel}")
 
     case get.() do
       nil ->
@@ -515,7 +578,8 @@ defmodule Authorizir do
     end
 
     def remove_orphans(type, repo, declarations_fn) do
-      keep_ids = Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> to_ext_id(ext_id) end)
+      keep_ids =
+        Enum.map(declarations_fn.(), fn {ext_id, _desc, _children} -> to_ext_id(ext_id) end)
 
       q =
         case type do
@@ -723,6 +787,15 @@ defmodule Authorizir do
       @impl Authorizir
       def register_permission(id, description, static \\ false),
         do: Authorizir.register_permission(@authorizir_repo, id, description, static)
+
+      @impl Authorizir
+      def subject_members(id), do: Authorizir.subject_members(@authorizir_repo, id)
+
+      @impl Authorizir
+      def object_members(id), do: Authorizir.object_members(@authorizir_repo, id)
+
+      @impl Authorizir
+      def permission_members(id), do: Authorizir.permission_members(@authorizir_repo, id)
 
       defp permission_declarations, do: @permissions
 
