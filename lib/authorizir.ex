@@ -370,7 +370,7 @@ defmodule Authorizir do
               list(
                 {subject :: binary(), object :: binary(), permission :: binary(), type :: :+ | :-}
               )
-  @spec list_rules(Ecto.Repo.t(), binary(), module()) ::
+  @spec list_rules(Ecto.Repo.t(), to_ext_id(), module()) ::
           list({binary(), binary(), binary(), :+ | :-})
   def list_rules(repo, ext_id, Subject) do
     ext_id = to_ext_id(ext_id)
