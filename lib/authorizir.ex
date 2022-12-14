@@ -152,6 +152,8 @@ defmodule Authorizir do
 
   @type to_ext_id() :: ToAuthorizirId.t()
 
+  @optional_callbacks [init: 0]
+
   @callback init :: :ok
 
   @callback register_subject(id :: to_ext_id(), description :: String.t(), static :: boolean()) ::
@@ -367,9 +369,14 @@ defmodule Authorizir do
           true -> false
         end
 
-      {:error, :invalid_subject} -> raise(AuthorizationError, message: "invalid subject: #{subject_id}")
-      {:error, :invalid_object} -> raise(AuthorizationError, message: "invalid object: #{object_id}")
-      {:error, :invalid_permission} -> raise(AuthorizationError, message: "invalid permission: #{permission_id}")
+      {:error, :invalid_subject} ->
+        raise(AuthorizationError, message: "invalid subject: #{subject_id}")
+
+      {:error, :invalid_object} ->
+        raise(AuthorizationError, message: "invalid object: #{object_id}")
+
+      {:error, :invalid_permission} ->
+        raise(AuthorizationError, message: "invalid permission: #{permission_id}")
     end
   end
 
@@ -650,6 +657,7 @@ defmodule Authorizir do
     application = Keyword.fetch!(opts, :application)
     module = __CALLER__.module
 
+    # credo:disable-for-next-line Credo.Check.Refactor.LongQuoteBlocks
     quote location: :keep, bind_quoted: [repo: repo, module: module, application: application] do
       require Authorizir.Macros
       Module.register_attribute(module, :permissions, accumulate: true)
@@ -658,6 +666,7 @@ defmodule Authorizir do
       Module.register_attribute(module, :rules, accumulate: true)
 
       @authorizir_repo repo
+      @authorizir_application application
       @behaviour Authorizir
 
       import Authorizir.Macros,
@@ -695,7 +704,13 @@ defmodule Authorizir do
 
         register_items(Subject, @authorizir_repo, &subject_declarations/0, &register_subject/3)
         register_items(Object, @authorizir_repo, &object_declarations/0, &register_object/3)
-        register_items(AuthorizationRule, @authorizir_repo, &rule_declarations/0, &create_rule/5)
+
+        register_items(
+          AuthorizationRule,
+          @authorizir_repo,
+          &rule_declarations/0,
+          &create_rule/5
+        )
 
         build_tree(Permission, @authorizir_repo, &permission_declarations/0)
         build_tree(Subject, @authorizir_repo, &subject_declarations/0)
@@ -705,44 +720,59 @@ defmodule Authorizir do
       end
 
       @impl Authorizir
-      def grant_permission(subject_id, object_id, permission_id),
-        do: Authorizir.grant_permission(@authorizir_repo, subject_id, object_id, permission_id)
+      def register_permission(id, description, static \\ false) do
+        impl().register_permission(id, description, static)
+      end
 
       @impl Authorizir
-      def revoke_permission(subject_id, object_id, permission_id),
-        do: Authorizir.revoke_permission(@authorizir_repo, subject_id, object_id, permission_id)
+      def register_subject(id, description, static \\ false) do
+        impl().register_subject(id, description, static)
+      end
 
       @impl Authorizir
-      def deny_permission(subject_id, object_id, permission_id),
-        do: Authorizir.deny_permission(@authorizir_repo, subject_id, object_id, permission_id)
+      def register_object(id, description, static \\ false) do
+        impl().register_object(id, description, static)
+      end
 
       @impl Authorizir
-      def allow_permission(subject_id, object_id, permission_id),
-        do: Authorizir.allow_permission(@authorizir_repo, subject_id, object_id, permission_id)
+      def add_child(parent_id, child_id, type) do
+        impl().add_child(parent_id, child_id, type)
+      end
 
       @impl Authorizir
-      def permission_granted?(subject_id, object_id, permission_id),
-        do: Authorizir.permission_granted?(@authorizir_repo, subject_id, object_id, permission_id)
+      def list_rules(ext_id, type) do
+        impl().list_rules(ext_id, type)
+      end
 
       @impl Authorizir
-      def add_child(parent_id, child_id, type),
-        do: Authorizir.add_child(@authorizir_repo, parent_id, child_id, type)
+      def grant_permission(subject_id, object_id, permission_id) do
+        impl().grant_permission(subject_id, object_id, permission_id)
+      end
 
       @impl Authorizir
-      def remove_child(parent_id, child_id, type),
-        do: Authorizir.remove_child(@authorizir_repo, parent_id, child_id, type)
+      def deny_permission(subject_id, object_id, permission_id) do
+        impl().deny_permission(subject_id, object_id, permission_id)
+      end
 
       @impl Authorizir
-      def register_subject(id, description, static \\ false),
-        do: Authorizir.register_subject(@authorizir_repo, id, description, static)
+      def permission_granted?(subject_id, object_id, permission_id) do
+        impl().permission_granted?(subject_id, object_id, permission_id)
+      end
 
       @impl Authorizir
-      def register_object(id, description, static \\ false),
-        do: Authorizir.register_object(@authorizir_repo, id, description, static)
+      def revoke_permission(subject_id, object_id, permission_id) do
+        impl().revoke_permission(subject_id, object_id, permission_id)
+      end
 
       @impl Authorizir
-      def register_permission(id, description, static \\ false),
-        do: Authorizir.register_permission(@authorizir_repo, id, description, static)
+      def allow_permission(subject_id, object_id, permission_id) do
+        impl().allow_permission(subject_id, object_id, permission_id)
+      end
+
+      @impl Authorizir
+      def remove_child(parent_id, child_id, type) do
+        impl().remove_child(parent_id, child_id, type)
+      end
 
       defp permission_declarations, do: @permissions
 
@@ -752,13 +782,64 @@ defmodule Authorizir do
 
       defp rule_declarations, do: @rules
 
-      @impl Authorizir
-      def list_rules(ext_id, type), do: Authorizir.list_rules(@authorizir_repo, ext_id, type)
-
       defoverridable permission_declarations: 0,
                      subject_declarations: 0,
                      object_declarations: 0,
                      rule_declarations: 0
+
+      @spec impl() :: Authorizir.t()
+      defp impl,
+        do: Application.get_env(@authorizir_application, __MODULE__.Impl, __MODULE__.Impl)
+
+      defmodule Impl do
+        @moduledoc false
+        @behaviour Authorizir
+        @authorizir_repo repo
+
+        @impl Authorizir
+        def grant_permission(subject_id, object_id, permission_id),
+          do: Authorizir.grant_permission(@authorizir_repo, subject_id, object_id, permission_id)
+
+        @impl Authorizir
+        def revoke_permission(subject_id, object_id, permission_id),
+          do: Authorizir.revoke_permission(@authorizir_repo, subject_id, object_id, permission_id)
+
+        @impl Authorizir
+        def deny_permission(subject_id, object_id, permission_id),
+          do: Authorizir.deny_permission(@authorizir_repo, subject_id, object_id, permission_id)
+
+        @impl Authorizir
+        def allow_permission(subject_id, object_id, permission_id),
+          do: Authorizir.allow_permission(@authorizir_repo, subject_id, object_id, permission_id)
+
+        @impl Authorizir
+        def permission_granted?(subject_id, object_id, permission_id),
+          do:
+            Authorizir.permission_granted?(@authorizir_repo, subject_id, object_id, permission_id)
+
+        @impl Authorizir
+        def add_child(parent_id, child_id, type),
+          do: Authorizir.add_child(@authorizir_repo, parent_id, child_id, type)
+
+        @impl Authorizir
+        def remove_child(parent_id, child_id, type),
+          do: Authorizir.remove_child(@authorizir_repo, parent_id, child_id, type)
+
+        @impl Authorizir
+        def register_subject(id, description, static \\ false),
+          do: Authorizir.register_subject(@authorizir_repo, id, description, static)
+
+        @impl Authorizir
+        def register_object(id, description, static \\ false),
+          do: Authorizir.register_object(@authorizir_repo, id, description, static)
+
+        @impl Authorizir
+        def register_permission(id, description, static \\ false),
+          do: Authorizir.register_permission(@authorizir_repo, id, description, static)
+
+        @impl Authorizir
+        def list_rules(ext_id, type), do: Authorizir.list_rules(@authorizir_repo, ext_id, type)
+      end
     end
   end
 

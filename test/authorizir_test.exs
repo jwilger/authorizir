@@ -391,16 +391,17 @@ defmodule AuthorizirTest do
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
       id = UUID.generate()
+
       assert_raise Authorizir.AuthorizationError, "invalid subject: #{id}", fn ->
         Auth.permission_granted?(id, object, permission)
       end
-
     end
 
     test "raises if object ID has not been registered" do
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
       id = UUID.generate()
+
       assert_raise Authorizir.AuthorizationError, "invalid object: #{id}", fn ->
         Auth.permission_granted?(subject, id, permission)
       end
@@ -410,6 +411,7 @@ defmodule AuthorizirTest do
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       id = UUID.generate()
+
       assert_raise Authorizir.AuthorizationError, "invalid permission: #{id}", fn ->
         Auth.permission_granted?(subject, object, id)
       end

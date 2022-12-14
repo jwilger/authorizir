@@ -7,7 +7,7 @@ case Mix.env() do
       url: System.get_env("TEST_DATABASE_URL"),
       pool: Ecto.Adapters.SQL.Sandbox
 
-    config :logger, level: String.to_existing_atom(System.get_env("LOG_LEVEL", "info"))
+    config :logger, level: String.to_existing_atom(System.get_env("LOG_LEVEL", "warn"))
 
   _env ->
     nil
