@@ -138,13 +138,13 @@ defmodule Authorizir do
 
   """
 
-  require Logger
-
   import Authorizir.ErrorHelpers, only: [errors_on: 2]
   import Authorizir.ToAuthorizirId, only: [to_ext_id: 1]
   import Ecto.Query, only: [from: 2]
 
   alias Authorizir.{AuthorizationRule, Object, Permission, Subject, ToAuthorizirId}
+
+  require Logger
 
   @type to_ext_id() :: ToAuthorizirId.t()
 
@@ -156,8 +156,8 @@ defmodule Authorizir do
   @spec register_subject(Ecto.Repo.t(), to_ext_id(), String.t(), static :: boolean()) ::
           :ok | {:error, :description_is_required | :id_is_required}
   def register_subject(repo, id, description, static \\ false) do
-    log(:info, "Registering subject #{id} - #{description}")
     id = to_ext_id(id)
+    log(:info, "Registering subject #{id} - #{description}")
 
     case Subject.new(id, description, static)
          |> repo.insert(
