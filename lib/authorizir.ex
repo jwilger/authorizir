@@ -156,7 +156,7 @@ defmodule Authorizir do
   @spec register_subject(Ecto.Repo.t(), to_ext_id(), String.t(), static :: boolean()) ::
           :ok | {:error, :description_is_required | :id_is_required}
   def register_subject(repo, id, description, static \\ false) do
-    log(:debug, "Registering subject #{id} - #{description}")
+    log(:info, "Registering subject #{id} - #{description}")
     id = to_ext_id(id)
 
     case Subject.new(id, description, static)
