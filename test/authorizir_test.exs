@@ -387,91 +387,91 @@ defmodule AuthorizirTest do
   end
 
   describe "permission_granted?/3" do
-    test "returns {:error, :invalid_subject} if subject ID has not been registered" do
+    test "raises if subject ID has not been registered" do
+      {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
+      {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
+      id = UUID.generate()
+      assert_raise Authorizir.AuthorizationError, "invalid subject: #{id}", fn ->
+        Auth.permission_granted?(id, object, permission)
+      end
+
+    end
+
+    test "raises if object ID has not been registered" do
+      {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
+      {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
+      id = UUID.generate()
+      assert_raise Authorizir.AuthorizationError, "invalid object: #{id}", fn ->
+        Auth.permission_granted?(subject, id, permission)
+      end
+    end
+
+    test "raises if permission ID has not been registered" do
+      {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
+      {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
+      id = UUID.generate()
+      assert_raise Authorizir.AuthorizationError, "invalid permission: #{id}", fn ->
+        Auth.permission_granted?(subject, object, id)
+      end
+    end
+
+    test "returns false when no authorization rules exist that can affect the given sop" do
+      {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
 
-      {:error, :invalid_subject} = Auth.permission_granted?(UUID.generate(), object, permission)
+      refute Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns {:error, :invalid_object} if object ID has not been registered" do
-      {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
-      {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
-      {:error, :invalid_object} = Auth.permission_granted?(subject, UUID.generate(), permission)
-    end
-
-    test "returns {:error, :invalid_permission} if permission ID has not been registered" do
-      {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
-      {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
-
-      {:error, :invalid_permission} = Auth.permission_granted?(subject, object, UUID.generate())
-    end
-
-    test "returns :denied when no authorization rules exist that can affect the given sop" do
+    test "returns false when negative grant rule is applied to the sop" do
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
-      :denied = Auth.permission_granted?(subject, object, permission)
-    end
-
-    test "returns :denied when negative grant rule is applied to the sop" do
-      {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
-      {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
-      {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject, object, permission)
 
-      :denied = Auth.permission_granted?(subject, object, permission)
+      refute Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :denied when negative grant rule is applied to the sop via subject ancestors" do
+    test "returns false when negative grant rule is applied to the sop via subject ancestors" do
       {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject_p} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       :ok = Auth.add_child(subject_a, subject_p, Subject)
       :ok = Auth.add_child(subject_p, subject, Subject)
-
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject_a, object, permission)
 
-      :denied = Auth.permission_granted?(subject, object, permission)
+      refute Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :denied when negative grant rule is applied to the sop via object ancestors" do
+    test "returns false when negative grant rule is applied to the sop via object ancestors" do
       {:ok, object_a} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, object_p} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       :ok = Auth.add_child(object_a, object_p, Object)
       :ok = Auth.add_child(object_p, object, Object)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject, object_a, permission)
 
-      :denied = Auth.permission_granted?(subject, object, permission)
+      refute Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :denied when negative grant rule is applied to the sop via permission descendants" do
+    test "returns false when negative grant rule is applied to the sop via permission descendants" do
       {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission_p} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       :ok = Auth.add_child(permission_a, permission_p, Permission)
       :ok = Auth.add_child(permission_p, permission, Permission)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject, object, permission)
 
-      :denied = Auth.permission_granted?(subject, object, permission_a)
+      refute Auth.permission_granted?(subject, object, permission_a)
     end
 
-    test "returns :denied when negative grant rule is applied to the sop via permission supremum" do
+    test "returns false when negative grant rule is applied to the sop via permission supremum" do
       supremum = Repo.get_by!(Permission, ext_id: "*")
       {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission_p} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
@@ -479,66 +479,58 @@ defmodule AuthorizirTest do
       :ok = Auth.add_child(supremum, permission_a, Permission)
       :ok = Auth.add_child(permission_a, permission_p, Permission)
       :ok = Auth.add_child(permission_p, permission, Permission)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject, object, "*")
 
-      :denied = Auth.permission_granted?(subject, object, permission_a)
-      :denied = Auth.permission_granted?(subject, object, permission_p)
-      :denied = Auth.permission_granted?(subject, object, permission)
+      refute Auth.permission_granted?(subject, object, permission_a)
+      refute Auth.permission_granted?(subject, object, permission_p)
+      refute Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :denied when negative grant rule is applied to the sop via subject ancestors despite more specific positive grant" do
+    test "returns false when negative grant rule is applied to the sop via subject ancestors despite more specific positive grant" do
       {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject_p} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       :ok = Auth.add_child(subject_a, subject_p, Subject)
       :ok = Auth.add_child(subject_p, subject, Subject)
-
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject_a, object, permission)
       :ok = Auth.grant_permission(subject, object, permission)
 
-      :denied = Auth.permission_granted?(subject, object, permission)
+      refute Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :denied when negative grant rule is applied to the sop via object ancestors despite more specific positive grant" do
+    test "returns false when negative grant rule is applied to the sop via object ancestors despite more specific positive grant" do
       {:ok, object_a} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, object_p} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       :ok = Auth.add_child(object_a, object_p, Object)
       :ok = Auth.add_child(object_p, object, Object)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject, object_a, permission)
       :ok = Auth.grant_permission(subject, object, permission)
 
-      :denied = Auth.permission_granted?(subject, object, permission)
+      refute Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :denied when negative grant rule is applied to the sop via permission descendants despite more specific positive grant" do
+    test "returns false when negative grant rule is applied to the sop via permission descendants despite more specific positive grant" do
       {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission_p} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       :ok = Auth.add_child(permission_a, permission_p, Permission)
       :ok = Auth.add_child(permission_p, permission, Permission)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject, object, permission)
       :ok = Auth.grant_permission(subject, object, permission_a)
 
-      :denied = Auth.permission_granted?(subject, object, permission_a)
+      refute Auth.permission_granted?(subject, object, permission_a)
     end
 
-    test "returns :denied when negative grant rule is applied to the sop via permission supremum despite more specific positive grant" do
+    test "returns false when negative grant rule is applied to the sop via permission supremum despite more specific positive grant" do
       supremum = Repo.get_by!(Permission, ext_id: "*")
       {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission_p} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
@@ -546,120 +538,102 @@ defmodule AuthorizirTest do
       :ok = Auth.add_child(supremum, permission_a, Permission)
       :ok = Auth.add_child(permission_a, permission_p, Permission)
       :ok = Auth.add_child(permission_p, permission, Permission)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject, object, "*")
       :ok = Auth.grant_permission(subject, object, permission_a)
 
-      :denied = Auth.permission_granted?(subject, object, permission_a)
+      refute Auth.permission_granted?(subject, object, permission_a)
     end
 
-    ################
-    ################
-
-    test "returns :granted when positive grant rule is applied to the sop" do
+    test "returns true when positive grant rule is applied to the sop" do
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.grant_permission(subject, object, permission)
 
-      :granted = Auth.permission_granted?(subject, object, permission)
+      assert Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :granted when positive grant rule is applied to the sop via subject ancestors" do
+    test "returns true when positive grant rule is applied to the sop via subject ancestors" do
       {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject_p} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       :ok = Auth.add_child(subject_a, subject_p, Subject)
       :ok = Auth.add_child(subject_p, subject, Subject)
-
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.grant_permission(subject_a, object, permission)
 
-      :granted = Auth.permission_granted?(subject, object, permission)
+      assert Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :granted when positive grant rule is applied to the sop via object ancestors" do
+    test "returns true when positive grant rule is applied to the sop via object ancestors" do
       {:ok, object_a} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, object_p} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       :ok = Auth.add_child(object_a, object_p, Object)
       :ok = Auth.add_child(object_p, object, Object)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.grant_permission(subject, object_a, permission)
 
-      :granted = Auth.permission_granted?(subject, object, permission)
+      assert Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :granted when positive grant rule is applied to the sop via permission ancestors" do
+    test "returns true when positive grant rule is applied to the sop via permission ancestors" do
       {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission_p} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       :ok = Auth.add_child(permission_a, permission_p, Permission)
       :ok = Auth.add_child(permission_p, permission, Permission)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.grant_permission(subject, object, permission_a)
 
-      :granted = Auth.permission_granted?(subject, object, permission)
+      assert Auth.permission_granted?(subject, object, permission)
     end
 
-    test "returns :granted when negative grant rule is applied to subject descendants" do
+    test "returns true when negative grant rule is applied to subject descendants" do
       {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject_p} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       :ok = Auth.add_child(subject_a, subject_p, Subject)
       :ok = Auth.add_child(subject_p, subject, Subject)
-
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.grant_permission(subject_a, object, permission)
       :ok = Auth.deny_permission(subject, object, permission)
 
-      :granted = Auth.permission_granted?(subject_a, object, permission)
+      assert Auth.permission_granted?(subject_a, object, permission)
     end
 
-    test "returns :granted when negative grant rule is applied to object descendants" do
+    test "returns true when negative grant rule is applied to object descendants" do
       {:ok, object_a} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, object_p} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       {:ok, object} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
       :ok = Auth.add_child(object_a, object_p, Object)
       :ok = Auth.add_child(object_p, object, Object)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, permission} = Permission.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.grant_permission(subject, object_a, permission)
       :ok = Auth.deny_permission(subject, object, permission)
 
-      :granted = Auth.permission_granted?(subject, object_a, permission)
+      assert Auth.permission_granted?(subject, object_a, permission)
     end
 
-    test "returns :granted when negative grant rule is applied to permission ancestors" do
+    test "returns true when negative grant rule is applied to permission ancestors" do
       {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission_p} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       {:ok, permission} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
       :ok = Auth.add_child(permission_a, permission_p, Permission)
       :ok = Auth.add_child(permission_p, permission, Permission)
-
       {:ok, subject} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
       {:ok, object} = Object.new("edit", "edit stuff") |> Repo.insert()
-
       :ok = Auth.deny_permission(subject, object, permission_a)
       :ok = Auth.grant_permission(subject, object, permission)
 
-      :granted = Auth.permission_granted?(subject, object, permission)
+      assert Auth.permission_granted?(subject, object, permission)
     end
   end
 

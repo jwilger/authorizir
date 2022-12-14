@@ -146,6 +146,10 @@ defmodule Authorizir do
 
   require Logger
 
+  defmodule AuthorizationError do
+    defexception [:message]
+  end
+
   @type to_ext_id() :: ToAuthorizirId.t()
 
   @callback init :: :ok
@@ -351,21 +355,21 @@ defmodule Authorizir do
               subject_id :: to_ext_id(),
               object_id :: to_ext_id(),
               permission_id :: to_ext_id()
-            ) :: :granted | :denied | {:error, reason :: atom()}
+            ) :: boolean()
 
-  @spec permission_granted?(Ecto.Repo.t(), to_ext_id(), to_ext_id(), to_ext_id()) ::
-          :denied | :granted | {:error, :invalid_subject | :invalid_object | :invalid_permission}
+  @spec permission_granted?(Ecto.Repo.t(), to_ext_id(), to_ext_id(), to_ext_id()) :: boolean()
   def permission_granted?(repo, subject_id, object_id, permission_id) do
     case sop_nodes(repo, subject_id, object_id, permission_id) do
       {:ok, subject, object, permission} ->
         cond do
-          authorization_rule_applies?(repo, subject, object, permission, :-) -> :denied
-          authorization_rule_applies?(repo, subject, object, permission, :+) -> :granted
-          true -> :denied
+          authorization_rule_applies?(repo, subject, object, permission, :-) -> false
+          authorization_rule_applies?(repo, subject, object, permission, :+) -> true
+          true -> false
         end
 
-      {:error, _} = error ->
-        error
+      {:error, :invalid_subject} -> raise(AuthorizationError, message: "invalid subject: #{subject_id}")
+      {:error, :invalid_object} -> raise(AuthorizationError, message: "invalid object: #{object_id}")
+      {:error, :invalid_permission} -> raise(AuthorizationError, message: "invalid permission: #{permission_id}")
     end
   end
 
