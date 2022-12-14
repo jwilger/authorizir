@@ -66,7 +66,7 @@ defmodule AuthorizirTest do
 
   describe "subject_members/1" do
     test "returns an error if the subject does not exist" do
-      assert Auth.subject_members("no_such_subject") == {:error, :invalid_subject}
+      assert Auth.subject_members("no_such_subject") == {:error, :not_found}
     end
 
     test "returns an empty list if the subject has no children" do
@@ -120,7 +120,7 @@ defmodule AuthorizirTest do
 
   describe "object_members/1" do
     test "returns an error if the object does not exist" do
-      assert Auth.object_members("no_such_object") == {:error, :invalid_object}
+      assert Auth.object_members("no_such_object") == {:error, :not_found}
     end
 
     test "returns an empty list if the object has no children" do
@@ -176,7 +176,7 @@ defmodule AuthorizirTest do
 
   describe "permission_members/1" do
     test "returns an error if the permission does not exist" do
-      assert Auth.permission_members("no_such_permission") == {:error, :invalid_permission}
+      assert Auth.permission_members("no_such_permission") == {:error, :not_found}
     end
 
     test "returns an empty list if the permission has no children" do

@@ -305,7 +305,7 @@ defmodule Authorizir do
   @spec subject_members(Ecto.Repo.t(), to_ext_id()) ::
           {:ok, list(String.t())} | {:error, :invalid_subject}
   def subject_members(repo, id) do
-    case get_node(repo, Subject, id, :subject) do
+    case get_node(repo, Subject, id) do
       {:ok, subject} ->
         subject
         |> Subject.descendants()
@@ -325,7 +325,7 @@ defmodule Authorizir do
   @spec object_members(Ecto.Repo.t(), to_ext_id()) ::
           {:ok, list(String.t())} | {:error, :invalid_subject}
   def object_members(repo, id) do
-    case get_node(repo, Object, id, :object) do
+    case get_node(repo, Object, id) do
       {:ok, object} ->
         object
         |> Object.descendants()
@@ -345,7 +345,7 @@ defmodule Authorizir do
   @spec permission_members(Ecto.Repo.t(), to_ext_id()) ::
           {:ok, list(String.t())} | {:error, :invalid_subject}
   def permission_members(repo, id) do
-    case get_node(repo, Permission, id, :permission) do
+    case get_node(repo, Permission, id) do
       {:ok, permission} ->
         permission
         |> Permission.descendants()
@@ -359,21 +359,30 @@ defmodule Authorizir do
     end
   end
 
-  defp get_parent(repo, type, parent_id), do: get_node(repo, type, parent_id, :parent)
+  defp get_parent(repo, type, parent_id) do
+    case get_node(repo, type, parent_id) do
+      {:ok, node} -> {:ok, node}
+      {:error, :not_found} -> {:error, :invalid_parent}
+    end
+  end
 
-  defp get_child(repo, type, child_id), do: get_node(repo, type, child_id, :child)
+  defp get_child(repo, type, child_id) do
+    case get_node(repo, type, child_id) do
+      {:ok, node} -> {:ok, node}
+      {:error, :not_found} -> {:error, :invalid_child}
+    end
+  end
 
-  defp get_node(repo, type, id, rel) do
+  defp get_node(repo, type, id) do
     id = to_ext_id(id)
     get = fn -> repo.get_by(type, ext_id: id) end
-    msg = String.to_existing_atom("invalid_#{rel}")
 
     case get.() do
       nil ->
         :timer.sleep(100)
 
         case get.() do
-          nil -> {:error, msg}
+          nil -> {:error, :not_found}
           node -> {:ok, node}
         end
 
