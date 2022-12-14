@@ -140,7 +140,7 @@ defmodule Authorizir do
 
   import Authorizir.ErrorHelpers, only: [errors_on: 2]
   import Authorizir.ToAuthorizirId, only: [to_ext_id: 1]
-  import Ecto.Query, only: [from: 2, select: 2]
+  import Ecto.Query, only: [from: 2]
 
   alias Authorizir.{AuthorizationRule, Object, Permission, Subject, ToAuthorizirId}
 
@@ -296,66 +296,6 @@ defmodule Authorizir do
          {:ok, child} <- get_child(repo, type, child_id),
          {:edge_created, _edge} <- type.create_edge(parent, child) |> repo.dagex_update() do
       :ok
-    end
-  end
-
-  @callback subject_members(id :: to_ext_id()) ::
-              {:ok, list(id :: String.t())} | {:error, :invalid_subject}
-
-  @spec subject_members(Ecto.Repo.t(), to_ext_id()) ::
-          {:ok, list(String.t())} | {:error, :invalid_subject}
-  def subject_members(repo, id) do
-    case get_node(repo, Subject, id) do
-      {:ok, subject} ->
-        subject
-        |> Subject.descendants()
-        |> select([:ext_id])
-        |> repo.all()
-        |> Enum.map(fn s -> s.ext_id end)
-        |> then(&{:ok, &1})
-
-      error ->
-        error
-    end
-  end
-
-  @callback object_members(id :: to_ext_id()) ::
-              {:ok, list(id :: String.t())} | {:error, :invalid_subject}
-
-  @spec object_members(Ecto.Repo.t(), to_ext_id()) ::
-          {:ok, list(String.t())} | {:error, :invalid_subject}
-  def object_members(repo, id) do
-    case get_node(repo, Object, id) do
-      {:ok, object} ->
-        object
-        |> Object.descendants()
-        |> select([:ext_id])
-        |> repo.all()
-        |> Enum.map(fn s -> s.ext_id end)
-        |> then(&{:ok, &1})
-
-      error ->
-        error
-    end
-  end
-
-  @callback permission_members(id :: to_ext_id()) ::
-              {:ok, list(id :: String.t())} | {:error, :invalid_subject}
-
-  @spec permission_members(Ecto.Repo.t(), to_ext_id()) ::
-          {:ok, list(String.t())} | {:error, :invalid_subject}
-  def permission_members(repo, id) do
-    case get_node(repo, Permission, id) do
-      {:ok, permission} ->
-        permission
-        |> Permission.descendants()
-        |> select([:ext_id])
-        |> repo.all()
-        |> Enum.map(fn s -> s.ext_id end)
-        |> then(&{:ok, &1})
-
-      error ->
-        error
     end
   end
 
@@ -796,15 +736,6 @@ defmodule Authorizir do
       @impl Authorizir
       def register_permission(id, description, static \\ false),
         do: Authorizir.register_permission(@authorizir_repo, id, description, static)
-
-      @impl Authorizir
-      def subject_members(id), do: Authorizir.subject_members(@authorizir_repo, id)
-
-      @impl Authorizir
-      def object_members(id), do: Authorizir.object_members(@authorizir_repo, id)
-
-      @impl Authorizir
-      def permission_members(id), do: Authorizir.permission_members(@authorizir_repo, id)
 
       defp permission_declarations, do: @permissions
 
