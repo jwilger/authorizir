@@ -802,7 +802,7 @@ defmodule Authorizir do
                      object_declarations: 0,
                      rule_declarations: 0
 
-      @spec impl() :: Authorizir.t()
+      @spec impl() :: module()
       defp impl,
         do: Application.get_env(@authorizir_application, __MODULE__.Impl, __MODULE__.Impl)
 
