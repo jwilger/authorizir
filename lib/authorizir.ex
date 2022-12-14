@@ -154,6 +154,21 @@ defmodule Authorizir do
 
   @optional_callbacks [init: 0]
 
+  @application_module :authorizir
+                      |> Application.compile_env(:app_module)
+                      |> tap(
+                        &(!is_nil(&1) or
+                            raise(CompileError,
+                              file: __ENV__.file,
+                              line: __ENV__.line,
+                              description:
+                                "Application Auth module not configured, e.g. `config :authorizir, app_module: MyApp.Auth`"
+                            ))
+                      )
+
+  @spec application_module :: module()
+  def application_module, do: @application_module
+
   @callback init :: :ok
 
   @callback register_subject(id :: to_ext_id(), description :: String.t(), static :: boolean()) ::
