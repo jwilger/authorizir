@@ -64,6 +64,41 @@ defmodule AuthorizirTest do
     end
   end
 
+  describe "subjects_matching/1" do
+    setup do
+      :ok = Auth.register_subject(:grand_ancestor, "Grand Ancestor")
+      :ok = Auth.register_subject(:ancestor, "Ancestor")
+      :ok = Auth.register_subject(:ancestor2, "Ancestor 2")
+      :ok = Auth.register_subject(:parent1, "Parent 1")
+      :ok = Auth.register_subject(:parent2, "Parent 2")
+      :ok = Auth.register_subject(:child1, "Child 1")
+      :ok = Auth.register_subject(:child2, "Child 2")
+      :ok = Auth.register_subject(:child3, "Child 2")
+      :ok = Auth.add_child(:grand_ancestor, :ancestor, Subject)
+      :ok = Auth.add_child(:grand_ancestor, :ancestor2, Subject)
+      :ok = Auth.add_child(:ancestor, :parent1, Subject)
+      :ok = Auth.add_child(:ancestor, :parent2, Subject)
+      :ok = Auth.add_child(:parent1, :child1, Subject)
+      :ok = Auth.add_child(:parent2, :child2, Subject)
+      :ok = Auth.add_child(:grand_ancestor, :child3, Subject)
+    end
+    test "returns an empty list if no query terms are supplied" do
+      assert Auth.subjects_matching([]) == []
+    end
+
+    test "returns a list of subject IDs for all subjects that are descendants of the specified subject" do
+      assert Auth.subjects_matching(ancestor: :ancestor) == ~w(parent1 parent2 child1 child2)
+    end
+
+    test "returns a list of subject IDs for all subjects where the id matches the provided pattern" do
+      assert Auth.subjects_matching(id: ".*ancestor$") == ~w(grand_ancestor ancestor)
+    end
+
+    test "returns a list of subject IDs that are descendants of the specified subject and where the id matches the provided pattern" do
+      assert Auth.subjects_matching(ancestor: :ancestor, id: "^child") == ~w(child1 child2)
+    end
+  end
+
   describe "register_object/2" do
     test "returns :ok if object was successfully registered" do
       :ok = Auth.register_object(UUID.generate(), "some description")

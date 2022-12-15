@@ -140,7 +140,7 @@ defmodule Authorizir do
 
   import Authorizir.ErrorHelpers, only: [errors_on: 2]
   import Authorizir.ToAuthorizirId, only: [to_ext_id: 1]
-  import Ecto.Query, only: [from: 2]
+  import Ecto.Query, only: [from: 2, select: 2]
 
   alias Authorizir.{AuthorizationRule, Object, Permission, Subject, ToAuthorizirId}
 
@@ -412,6 +412,39 @@ defmodule Authorizir do
     q = from([r, object: o] in list_rules_query(), where: o.ext_id == ^ext_id)
     repo.all(q)
   end
+
+  @callback subjects_matching(query :: Keyword.t()) :: list(String.t())
+  @spec subjects_matching(Ecto.Repo.t(), Keyword.t()) :: list(String.t())
+
+  def subjects_matching(repo, query \\ [])
+
+  def subjects_matching(_repo, []), do: []
+
+  def subjects_matching(repo, query) when length(query) > 0 do
+    query = Enum.into(query, %{})
+    Subject
+    |> maybe_query_ancestor(repo, query)
+    |> maybe_match_id(query)
+    |> select([:ext_id])
+    |> repo.all()
+    |> Enum.map(&(&1.ext_id))
+  end
+
+  defp maybe_query_ancestor(Subject, repo, %{ancestor: ancestor}) do
+    with {:ok, ancestor} <- get_node(repo, Subject, ancestor) do
+      Subject.descendants(ancestor)
+    else
+      {:error, :not_found} -> raise(AuthorizationError, message: "The specified ancestor Subject does not exist: #{ancestor}")
+    end
+  end
+
+  defp maybe_query_ancestor(base, _repo, _query), do: base
+
+  defp maybe_match_id(base, %{id: pattern}) do
+    from s in base, where: fragment("encode(?, 'escape') ~ ?", s.ext_id, ^pattern)
+  end
+
+  defp maybe_match_id(base, _query), do: base
 
   defp list_rules_query do
     from(r in AuthorizationRule,
@@ -789,6 +822,11 @@ defmodule Authorizir do
         impl().remove_child(parent_id, child_id, type)
       end
 
+      @impl Authorizir
+      def subjects_matching(query) do
+        impl().subjects_matching(query)
+      end
+
       defp permission_declarations, do: @permissions
 
       defp subject_declarations, do: @subjects
@@ -854,6 +892,9 @@ defmodule Authorizir do
 
         @impl Authorizir
         def list_rules(ext_id, type), do: Authorizir.list_rules(@authorizir_repo, ext_id, type)
+
+        @impl Authorizir
+        def subjects_matching(query), do: Authorizir.subjects_matching(@authorizir_repo, query)
       end
     end
   end
