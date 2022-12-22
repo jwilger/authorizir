@@ -376,6 +376,10 @@ defmodule Authorizir do
 
   @spec permission_granted?(Ecto.Repo.t(), to_ext_id(), to_ext_id(), to_ext_id()) :: boolean()
   def permission_granted?(repo, subject_id, object_id, permission_id) do
+    subject_id = to_ext_id(subject_id)
+    object_id = to_ext_id(object_id)
+    permission_id = to_ext_id(permission_id)
+
     case sop_nodes(repo, subject_id, object_id, permission_id) do
       {:ok, subject, object, permission} ->
         cond do
