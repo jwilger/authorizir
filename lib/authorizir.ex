@@ -171,6 +171,8 @@ defmodule Authorizir do
 
   @callback init :: :ok
 
+  @callback to_ext_id(term()) :: binary()
+
   @callback register_subject(id :: to_ext_id(), description :: String.t(), static :: boolean()) ::
               :ok | {:error, reason :: atom()}
 
@@ -426,26 +428,31 @@ defmodule Authorizir do
 
   def subjects_matching(repo, query) when length(query) > 0 do
     query = Enum.into(query, %{})
+
     Subject
     |> maybe_query_ancestor(repo, query)
     |> maybe_match_id(query)
     |> select([:ext_id])
     |> repo.all()
-    |> Enum.map(&(&1.ext_id))
+    |> Enum.map(& &1.ext_id)
   end
 
   defp maybe_query_ancestor(Subject, repo, %{ancestor: ancestor}) do
-    with {:ok, ancestor} <- get_node(repo, Subject, ancestor) do
-      Subject.descendants(ancestor)
-    else
-      {:error, :not_found} -> raise(AuthorizationError, message: "The specified ancestor Subject does not exist: #{ancestor}")
+    case get_node(repo, Subject, ancestor) do
+      {:ok, ancestor} ->
+        Subject.descendants(ancestor)
+
+      {:error, :not_found} ->
+        raise(AuthorizationError,
+          message: "The specified ancestor Subject does not exist: #{ancestor}"
+        )
     end
   end
 
   defp maybe_query_ancestor(base, _repo, _query), do: base
 
   defp maybe_match_id(base, %{id: pattern}) do
-    from s in base, where: fragment("encode(?, 'escape') ~ ?", s.ext_id, ^pattern)
+    from(s in base, where: fragment("encode(?, 'escape') ~ ?", s.ext_id, ^pattern))
   end
 
   defp maybe_match_id(base, _query), do: base
@@ -831,6 +838,11 @@ defmodule Authorizir do
         impl().subjects_matching(query)
       end
 
+      @impl Authorizir
+      def to_ext_id(term) do
+        impl().to_ext_id(term)
+      end
+
       defp permission_declarations, do: @permissions
 
       defp subject_declarations, do: @subjects
@@ -899,6 +911,9 @@ defmodule Authorizir do
 
         @impl Authorizir
         def subjects_matching(query), do: Authorizir.subjects_matching(@authorizir_repo, query)
+
+        @impl Authorizir
+        def to_ext_id(term), do: Authorizir.ToAuthorizirId.to_ext_id(term)
       end
     end
   end

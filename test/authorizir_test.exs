@@ -82,6 +82,7 @@ defmodule AuthorizirTest do
       :ok = Auth.add_child(:parent2, :child2, Subject)
       :ok = Auth.add_child(:grand_ancestor, :child3, Subject)
     end
+
     test "returns an empty list if no query terms are supplied" do
       assert Auth.subjects_matching([]) == []
     end
@@ -702,6 +703,12 @@ defmodule AuthorizirTest do
                {subject_b.ext_id, object_b.ext_id, "bar", :-},
                {subject_b.ext_id, object_b.ext_id, "foo", :+}
              ]
+    end
+  end
+
+  describe "to_ext_id/1" do
+    test "attempts to conver the value to an ext_id using Authorizir.ToAuthorizirId protocol" do
+      assert Auth.to_ext_id(%Subject{ext_id: "foo"}) == "foo"
     end
   end
 end
