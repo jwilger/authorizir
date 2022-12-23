@@ -312,11 +312,29 @@ defmodule Authorizir do
     delete_rule(repo, subject_id, object_id, permission_id, :-)
   end
 
-  @callback add_child(parent_id :: to_ext_id(), child_id :: to_ext_id(), type :: module()) ::
+  @callback add_child(
+              parent_id :: to_ext_id(),
+              child_id :: to_ext_id(),
+              type :: Subject | Object | Permission | :subject | :object | :permission
+            ) ::
               :ok | {:error, reason :: atom()}
 
-  @spec add_child(Ecto.Repo.t(), to_ext_id(), to_ext_id(), module()) ::
+  @spec add_child(
+          Ecto.Repo.t(),
+          to_ext_id(),
+          to_ext_id(),
+          Subject | Object | Permission | :subject | :object | :permission
+        ) ::
           :ok | {:error, :invalid_parent | :invalid_child}
+  def add_child(repo, parent_id, child_id, :subject),
+    do: add_child(repo, parent_id, child_id, Subject)
+
+  def add_child(repo, parent_id, child_id, :object),
+    do: add_child(repo, parent_id, child_id, Object)
+
+  def add_child(repo, parent_id, child_id, :permission),
+    do: add_child(repo, parent_id, child_id, Permission)
+
   def add_child(repo, parent_id, child_id, type) do
     with {:ok, parent} <- get_parent(repo, type, parent_id),
          {:ok, child} <- get_child(repo, type, child_id),
@@ -357,11 +375,30 @@ defmodule Authorizir do
     end
   end
 
-  @callback remove_child(parent_id :: to_ext_id(), child_id :: to_ext_id(), type :: module()) ::
+  @callback remove_child(
+              parent_id :: to_ext_id(),
+              child_id :: to_ext_id(),
+              type :: Subject | Object | Permission | :subject | :object | :permission
+            ) ::
               :ok | {:error, reason :: atom()}
 
-  @spec remove_child(Ecto.Repo.t(), to_ext_id(), to_ext_id(), module()) ::
+  @spec remove_child(
+          Ecto.Repo.t(),
+          to_ext_id(),
+          to_ext_id(),
+          Subject | Object | Permission | :subject | :object | :permission
+        ) ::
           :ok | {:error, :invalid_parent | :invalid_child}
+
+  def remove_child(repo, parent_id, child_id, :subject),
+    do: remove_child(repo, parent_id, child_id, Subject)
+
+  def remove_child(repo, parent_id, child_id, :object),
+    do: remove_child(repo, parent_id, child_id, Object)
+
+  def remove_child(repo, parent_id, child_id, :permission),
+    do: remove_child(repo, parent_id, child_id, Permission)
+
   def remove_child(repo, parent_id, child_id, type) do
     with {:ok, parent} <- get_parent(repo, type, parent_id),
          {:ok, child} <- get_child(repo, type, child_id),

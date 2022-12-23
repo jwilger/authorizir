@@ -388,6 +388,33 @@ defmodule AuthorizirTest do
 
       {:error, :cyclic_edge} = Auth.add_child(subject, subject, Subject)
     end
+
+    test "can add child subjects with the :subject key" do
+      {:ok, subject_a} = Subject.new(UUID.generate(), "Subject A") |> Repo.insert()
+      {:ok, subject_b} = Subject.new(UUID.generate(), "Subject B") |> Repo.insert()
+
+      :ok = Auth.add_child(subject_a, subject_b, :subject)
+
+      assert subject_a in (Subject.parents(subject_b) |> Repo.all())
+    end
+
+    test "can add child objects with the :object key" do
+      {:ok, object_a} = Object.new(UUID.generate(), "Object A") |> Repo.insert()
+      {:ok, object_b} = Object.new(UUID.generate(), "Object B") |> Repo.insert()
+
+      :ok = Auth.add_child(object_a, object_b, :object)
+
+      assert object_a in (Object.parents(object_b) |> Repo.all())
+    end
+
+    test "can add child permissions with the :permission key" do
+      {:ok, permission_a} = Permission.new(UUID.generate(), "Permission A") |> Repo.insert()
+      {:ok, permission_b} = Permission.new(UUID.generate(), "Permission B") |> Repo.insert()
+
+      :ok = Auth.add_child(permission_a, permission_b, :permission)
+
+      assert permission_a in (Permission.parents(permission_b) |> Repo.all())
+    end
   end
 
   describe "remove_child/3" do
@@ -409,6 +436,30 @@ defmodule AuthorizirTest do
 
       :ok = Auth.add_child(subject_a, subject_b, Subject)
       :ok = Auth.remove_child(subject_a, subject_b, Subject)
+    end
+
+    test "can remove child using :subject key" do
+      subject_a = register(Subject, UUID.generate(), "Subject A")
+      subject_b = register(Subject, UUID.generate(), "Subject B")
+
+      :ok = Auth.add_child(subject_a, subject_b, Subject)
+      :ok = Auth.remove_child(subject_a, subject_b, :subject)
+    end
+
+    test "can remove child using :object key" do
+      object_a = register(Object, UUID.generate(), "Object A")
+      object_b = register(Object, UUID.generate(), "Object B")
+
+      :ok = Auth.add_child(object_a, object_b, Object)
+      :ok = Auth.remove_child(object_a, object_b, :object)
+    end
+
+    test "can remove child using :permission key" do
+      permission_a = register(Permission, UUID.generate(), "Permission A")
+      permission_b = register(Permission, UUID.generate(), "Permission B")
+
+      :ok = Auth.add_child(permission_a, permission_b, Permission)
+      :ok = Auth.remove_child(permission_a, permission_b, :permission)
     end
 
     test "removes Dagex parent/child association" do
