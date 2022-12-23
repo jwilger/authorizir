@@ -779,6 +779,8 @@ defmodule Authorizir do
 
       import ImplHelper
 
+      @type to_ext_id() :: Authorizir.to_ext_id()
+
       @impl Authorizir
       # credo:disable-for-next-line Credo.Check.Refactor.ABCSize
       def init do
