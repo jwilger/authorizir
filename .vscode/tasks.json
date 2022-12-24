@@ -6,7 +6,7 @@
     {
       "label": "Run Stale Tests",
       "type": "shell",
-      "command": "mix test --stale",
+      "command": "mix test --only focus && mix test --stale",
       "group": {
         "kind": "test",
         "isDefault": true

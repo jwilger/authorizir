@@ -510,17 +510,22 @@ defmodule Authorizir do
     )
   end
 
-  defp authorization_rule_applies?(repo, subject, object, permission, :-) do
-    supremum = repo.get_by!(Permission, ext_id: "*")
+  defp authorization_rule_applies?(repo, subject, object, :*, :-) do
+    %{id: supremum_id} = repo.get_by!(Permission, ext_id: "*")
 
+    from([r, s, o] in authorization_rules_for(subject, object),
+      where: r.permission_id == ^supremum_id and r.rule_type == :-
+    )
+    |> repo.exists?()
+  end
+
+  defp authorization_rule_applies?(repo, subject, object, permission, :-) do
     from([r, s, o] in authorization_rules_for(subject, object),
       join: p in subquery(Permission.with_descendants(permission)),
       on: p.id == r.permission_id,
       where: r.rule_type == :-
     )
-    |> repo.exists?() ||
-      if permission != supremum,
-        do: authorization_rule_applies?(repo, subject, object, supremum, :-)
+    |> repo.exists?() || authorization_rule_applies?(repo, subject, object, :*, :-)
   end
 
   defp authorization_rule_applies?(repo, subject, object, permission, :+) do
