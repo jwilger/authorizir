@@ -1,4 +1,5 @@
 {:ok, _pid} = AuthorizirTest.Repo.start_link()
 Ecto.Adapters.SQL.Sandbox.mode(AuthorizirTest.Repo, :manual)
+Authorizir.Cache.start()
 ExUnit.configure(exclude: :flakey)
 ExUnit.start()

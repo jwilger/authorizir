@@ -727,22 +727,22 @@ defmodule AuthorizirTest do
 
     @tag :focus
     test "A negative grant on a permission does not cause all permissions to be denied thanks to that whole thing where we can grant the permission supremum" do
-        # permission :read, "User can view the resource"
-        :ok = Auth.register_permission(:permission_a, "A")
+      # permission :read, "User can view the resource"
+      :ok = Auth.register_permission(:permission_a, "A")
 
-        # permission :create, "User can create new instances of the resource"
-        :ok = Auth.register_permission(:permission_b, "B")
+      # permission :create, "User can create new instances of the resource"
+      :ok = Auth.register_permission(:permission_b, "B")
 
-        # collection :regions, "Contains all of the regions and other physical regions for the company"
-        :ok = Auth.register_object(:object_a, "Object")
+      # collection :regions, "Contains all of the regions and other physical regions for the company"
+      :ok = Auth.register_object(:object_a, "Object")
 
-        :ok = Auth.register_subject(:subject_a, "Subject")
+      :ok = Auth.register_subject(:subject_a, "Subject")
 
-        :ok = Auth.grant_permission(:subject_a, :object_a, :permission_a)
-        :ok = Auth.deny_permission(:subject_a, :object_a, :permission_b)
+      :ok = Auth.grant_permission(:subject_a, :object_a, :permission_a)
+      :ok = Auth.deny_permission(:subject_a, :object_a, :permission_b)
 
-        assert Auth.permission_granted?(:subject_a, :object_a, :permission_a)
-        refute Auth.permission_granted?(:subject_a, :object_a, :permission_b)
+      assert Auth.permission_granted?(:subject_a, :object_a, :permission_a)
+      refute Auth.permission_granted?(:subject_a, :object_a, :permission_b)
     end
   end
 

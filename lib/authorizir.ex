@@ -143,6 +143,7 @@ defmodule Authorizir do
   import Ecto.Query, only: [from: 2, select: 2]
 
   alias Authorizir.{AuthorizationRule, Object, Permission, Subject, ToAuthorizirId}
+  alias Authorizir.Cache.Results
 
   require Logger
 
@@ -413,8 +414,29 @@ defmodule Authorizir do
               permission_id :: to_ext_id()
             ) :: boolean()
 
-  @spec permission_granted?(Ecto.Repo.t(), to_ext_id(), to_ext_id(), to_ext_id()) :: boolean()
-  def permission_granted?(repo, subject_id, object_id, permission_id) do
+  @cache_ttl Application.compile_env(:authorizir, :cache_ttl, 60)
+
+  @spec permission_granted?(Ecto.Repo.t(), to_ext_id(), to_ext_id(), to_ext_id(), boolean()) ::
+          boolean() | {:error, :invalid_subject | :invalid_object | :invalid_permission}
+
+  def permission_granted?(repo, subject_id, object_id, permissioni_id, use_cache \\ true)
+
+  def permission_granted?(repo, subject_id, object_id, permission_id, true) do
+    subject_id = to_ext_id(subject_id)
+    object_id = to_ext_id(object_id)
+    permission_id = to_ext_id(permission_id)
+
+    perform_check = fn {subject_id, object_id, permission_id} ->
+      case permission_granted?(repo, subject_id, object_id, permission_id, false) do
+        {:error, _msg} = error -> error
+        result -> {:ok, result}
+      end
+    end
+
+    Results.fetch!({subject_id, object_id, permission_id}, perform_check, @cache_ttl)
+  end
+
+  def permission_granted?(repo, subject_id, object_id, permission_id, false) do
     subject_id = to_ext_id(subject_id)
     object_id = to_ext_id(object_id)
     permission_id = to_ext_id(permission_id)

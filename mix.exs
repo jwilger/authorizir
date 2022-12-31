@@ -142,6 +142,7 @@ defmodule Authorizir.MixProject do
     [
       {:credo, "~> 1.1", only: [:dev, :test], runtime: false},
       {:dagex, "~> 3.0"},
+      {:dcache, "0.0.6"},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:ecto_sql, "~> 3.6"},
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
