@@ -19,5 +19,6 @@ defmodule Authorizir.Cache do
   @spec start() :: :ok
   def start do
     __MODULE__.Results.setup()
+    :ok
   end
 end

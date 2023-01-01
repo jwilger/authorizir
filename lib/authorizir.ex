@@ -414,7 +414,6 @@ defmodule Authorizir do
               permission_id :: to_ext_id()
             ) :: boolean()
 
-  @cache_ttl Application.compile_env(:authorizir, :cache_ttl, 60)
 
   @spec permission_granted?(Ecto.Repo.t(), to_ext_id(), to_ext_id(), to_ext_id(), boolean()) ::
           boolean() | {:error, :invalid_subject | :invalid_object | :invalid_permission}
@@ -433,7 +432,8 @@ defmodule Authorizir do
       end
     end
 
-    Results.fetch!({subject_id, object_id, permission_id}, perform_check, @cache_ttl)
+    cache_ttl = Application.get_env(:authorizir, :cache_ttl, 60)
+    Results.fetch!({subject_id, object_id, permission_id}, perform_check, cache_ttl)
   end
 
   def permission_granted?(repo, subject_id, object_id, permission_id, false) do
