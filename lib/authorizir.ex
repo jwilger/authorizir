@@ -414,7 +414,6 @@ defmodule Authorizir do
               permission_id :: to_ext_id()
             ) :: boolean()
 
-
   @spec permission_granted?(Ecto.Repo.t(), to_ext_id(), to_ext_id(), to_ext_id(), boolean()) ::
           boolean() | {:error, :invalid_subject | :invalid_object | :invalid_permission}
 
@@ -496,6 +495,24 @@ defmodule Authorizir do
     |> Enum.map(& &1.ext_id)
   end
 
+  @callback objects_matching(query :: Keyword.t()) :: list(String.t())
+  @spec objects_matching(Ecto.Repo.t(), Keyword.t()) :: list(String.t())
+
+  def objects_matching(repo, query \\ [])
+
+  def objects_matching(_repo, []), do: []
+
+  def objects_matching(repo, query) when length(query) > 0 do
+    query = Enum.into(query, %{})
+
+    Object
+    |> maybe_query_ancestor(repo, query)
+    |> maybe_match_id(query)
+    |> select([:ext_id])
+    |> repo.all()
+    |> Enum.map(& &1.ext_id)
+  end
+
   defp maybe_query_ancestor(Subject, repo, %{ancestor: ancestor}) do
     case get_node(repo, Subject, ancestor) do
       {:ok, ancestor} ->
@@ -504,6 +521,18 @@ defmodule Authorizir do
       {:error, :not_found} ->
         raise(AuthorizationError,
           message: "The specified ancestor Subject does not exist: #{ancestor}"
+        )
+    end
+  end
+
+  defp maybe_query_ancestor(Object, repo, %{ancestor: ancestor}) do
+    case get_node(repo, Object, ancestor) do
+      {:ok, ancestor} ->
+        Object.descendants(ancestor)
+
+      {:error, :not_found} ->
+        raise(AuthorizationError,
+          message: "The specified ancestor Object does not exist: #{ancestor}"
         )
     end
   end
@@ -905,6 +934,11 @@ defmodule Authorizir do
       end
 
       @impl Authorizir
+      def objects_matching(query) do
+        impl().objects_matching(query)
+      end
+
+      @impl Authorizir
       def to_ext_id(term) do
         impl().to_ext_id(term)
       end
@@ -977,6 +1011,9 @@ defmodule Authorizir do
 
         @impl Authorizir
         def subjects_matching(query), do: Authorizir.subjects_matching(@authorizir_repo, query)
+
+        @impl Authorizir
+        def objects_matching(query), do: Authorizir.objects_matching(@authorizir_repo, query)
 
         @impl Authorizir
         def to_ext_id(term), do: Authorizir.ToAuthorizirId.to_ext_id(term)

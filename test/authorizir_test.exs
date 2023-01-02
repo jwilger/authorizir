@@ -100,6 +100,42 @@ defmodule AuthorizirTest do
     end
   end
 
+  describe "objects_matching/1" do
+    setup do
+      :ok = Auth.register_object(:grand_ancestor, "Grand Ancestor")
+      :ok = Auth.register_object(:ancestor, "Ancestor")
+      :ok = Auth.register_object(:ancestor2, "Ancestor 2")
+      :ok = Auth.register_object(:parent1, "Parent 1")
+      :ok = Auth.register_object(:parent2, "Parent 2")
+      :ok = Auth.register_object(:child1, "Child 1")
+      :ok = Auth.register_object(:child2, "Child 2")
+      :ok = Auth.register_object(:child3, "Child 2")
+      :ok = Auth.add_child(:grand_ancestor, :ancestor, Object)
+      :ok = Auth.add_child(:grand_ancestor, :ancestor2, Object)
+      :ok = Auth.add_child(:ancestor, :parent1, Object)
+      :ok = Auth.add_child(:ancestor, :parent2, Object)
+      :ok = Auth.add_child(:parent1, :child1, Object)
+      :ok = Auth.add_child(:parent2, :child2, Object)
+      :ok = Auth.add_child(:grand_ancestor, :child3, Object)
+    end
+
+    test "returns an empty list if no query terms are supplied" do
+      assert Auth.objects_matching([]) == []
+    end
+
+    test "returns a list of object IDs for all objects that are descendants of the specified object" do
+      assert Auth.objects_matching(ancestor: :ancestor) == ~w(parent1 parent2 child1 child2)
+    end
+
+    test "returns a list of object IDs for all objects where the id matches the provided pattern" do
+      assert Auth.objects_matching(id: ".*ancestor$") == ~w(grand_ancestor ancestor)
+    end
+
+    test "returns a list of object IDs that are descendants of the specified object and where the id matches the provided pattern" do
+      assert Auth.objects_matching(ancestor: :ancestor, id: "^child") == ~w(child1 child2)
+    end
+  end
+
   describe "register_object/2" do
     test "returns :ok if object was successfully registered" do
       :ok = Auth.register_object(UUID.generate(), "some description")
@@ -725,7 +761,6 @@ defmodule AuthorizirTest do
       assert Auth.permission_granted?(subject, object, permission)
     end
 
-    @tag :focus
     test "A negative grant on a permission does not cause all permissions to be denied thanks to that whole thing where we can grant the permission supremum" do
       # permission :read, "User can view the resource"
       :ok = Auth.register_permission(:permission_a, "A")
